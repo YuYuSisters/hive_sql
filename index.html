@@ -518,16 +518,21 @@
                     const labelEl = document.getElementById('partitionLabel');
                     const descEl = document.getElementById('partitionDesc');
 
-                    if (partCol === 'part_hour') {
-                        startEl.type = 'datetime-local';
-                        endEl.type = 'datetime-local';
-                        if (labelEl) labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${partCol}) <span class="text-red-500">*필수</span>`;
-                        if (descEl) descEl.innerHTML = '기준 테이블 파티션에 맞춰 <b>시간 단위(yyyymmddhh)</b>로 조건이 적용됩니다.';
+                    // 모든 _live_ 테이블은 schema.md 정책 상 기본적으로 YYYYMMDD 를 사용함
+                    startEl.type = 'date';
+                    endEl.type = 'date';
+                    
+                    let formatStr = 'YYYYMMDD';
+                    if (val === 'AD_KEYWORD') formatStr = 'YYYYMMDD02';
+
+                    if (labelEl) labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${partCol}) <span class="text-red-500">*필수</span>`;
+                    
+                    if (val === 'AD_KEYWORD') {
+                        if (descEl) descEl.innerHTML = `해당 테이블은 <b>${formatStr}</b> 포맷을 사용합니다. 선택한 일자에 자동으로 '02'가 붙어 쿼리됩니다.`;
+                    } else if (partCol === 'part_hour') {
+                        if (descEl) descEl.innerHTML = `컬럼명은 part_hour 이지만 schema.md 정책상 <b>${formatStr}</b> (일단위) 포맷으로 쿼리됩니다.`;
                     } else {
-                        startEl.type = 'date';
-                        endEl.type = 'date';
-                        if (labelEl) labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${partCol}) <span class="text-red-500">*필수</span>`;
-                        if (descEl) descEl.innerHTML = '기준 테이블 파티션에 맞춰 <b>일 단위(yyyymmdd)</b>로 조건이 적용됩니다.';
+                        if (descEl) descEl.innerHTML = `기준 테이블 파티션에 맞춰 <b>${formatStr}</b> 포맷으로 조건이 적용됩니다.`;
                     }
                 }
                 
@@ -595,13 +600,22 @@
 
                     return `
                     <div class="flex items-center gap-2 text-xs bg-gray-50 p-2 border border-gray-200 rounded shadow-sm fade-in">
-                        <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 bg-white w-32 truncate outline-none focus:border-red-500">
+                        <select onchange="app.updateFilter(${i}, 'agg', this.value)" class="border border-gray-300 rounded p-1.5 bg-purple-50 w-28 outline-none focus:border-red-500 text-purple-700 font-bold truncate">
+                            <option value="" ${!f.agg ? 'selected' : ''}>WHERE (기본)</option>
+                            <option value="SUM" ${f.agg === 'SUM' ? 'selected' : ''}>HAVING: SUM</option>
+                            <option value="COUNT" ${f.agg === 'COUNT' ? 'selected' : ''}>HAVING: COUNT</option>
+                            <option value="COUNT_DISTINCT" ${f.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>HAVING: C_DIST</option>
+                            <option value="AVG" ${f.agg === 'AVG' ? 'selected' : ''}>HAVING: AVG</option>
+                            <option value="MAX" ${f.agg === 'MAX' ? 'selected' : ''}>HAVING: MAX</option>
+                            <option value="MIN" ${f.agg === 'MIN' ? 'selected' : ''}>HAVING: MIN</option>
+                        </select>
+                        <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 bg-white w-24 truncate outline-none focus:border-red-500">
                             ${tableOpts}
                         </select>
-                        <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-40 bg-white outline-none focus:border-red-500">
+                        <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-32 bg-white outline-none focus:border-red-500 truncate">
                             ${colOpts}
                         </select>
-                        <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 font-bold text-purple-700 bg-purple-50 outline-none">
+                        <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 font-bold text-gray-700 bg-gray-100 outline-none w-16 text-center">
                             <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
                             <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
                             <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
@@ -622,7 +636,7 @@
             addFilter: function() {
                 const active = Array.from(this.getActiveTables());
                 const defaultT = active.length > 0 ? active[0] : '';
-                state.filters.push({ table: defaultT, col: '', op: '=', val: "''" });
+                state.filters.push({ table: defaultT, col: '', agg: '', op: '=', val: "''" });
                 this.renderFilters();
             },
             updateFilter: function(i, field, val) { 
@@ -869,19 +883,20 @@
 
                 // 4. WHERE clause
                 const wheres = [];
+                const havings = [];
                 
-                // Format Date based on partition type (YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm 형태 파싱)
-                let dStart = state.dateRange.start ? state.dateRange.start.replace(/[-T:]/g, '').substring(0, 10) : null;
-                let dEnd = state.dateRange.end ? state.dateRange.end.replace(/[-T:]/g, '').substring(0, 10) : null;
+                // Format Date based on partition type (YYYY-MM-DD 형태 파싱 후 8자리 추출)
+                let dStart = state.dateRange.start ? state.dateRange.start.replace(/[-T:]/g, '').substring(0, 8) : null;
+                let dEnd = state.dateRange.end ? state.dateRange.end.replace(/[-T:]/g, '').substring(0, 8) : null;
                 
                 if (dStart || dEnd) {
                     const pCol = baseInfo.part;
                     const alias = state.aliases[state.baseTable];
                     
-                    // 테이블은 시간 단위인데, 기존 날짜 포맷(8자리)이 남아있을 경우의 방어 로직
-                    if(pCol === 'part_hour') {
-                        if(dStart && dStart.length === 8) dStart += '00';
-                        if(dEnd && dEnd.length === 8) dEnd += '23';
+                    // AD_KEYWORD 테이블의 경우 yyyymmdd02 형식 적용
+                    if (state.baseTable === 'AD_KEYWORD') {
+                        if(dStart) dStart += '02';
+                        if(dEnd) dEnd += '02';
                     }
 
                     if (dStart && dEnd && dStart === dEnd) {
@@ -901,7 +916,18 @@
                         const alias = state.aliases[f.table] || f.table;
                         // basic string parsing to colorize values
                         const valFormat = f.val.includes("'") ? `<span class="text-yellow-400">${f.val}</span>` : f.val;
-                        wheres.push(`${alias}.${f.col} ${f.op} ${valFormat}`);
+                        
+                        if (f.agg) { // HAVING condition
+                            let aggExpr = '';
+                            if (f.agg === 'COUNT_DISTINCT') {
+                                aggExpr = `<span class="text-green-400">COUNT</span>(<span class="text-green-400">DISTINCT</span> ${alias}.${f.col})`;
+                            } else {
+                                aggExpr = `<span class="text-green-400">${f.agg}</span>(${alias}.${f.col})`;
+                            }
+                            havings.push(`${aggExpr} ${f.op} ${valFormat}`);
+                        } else { // WHERE condition
+                            wheres.push(`${alias}.${f.col} ${f.op} ${valFormat}`);
+                        }
                     }
                 });
 
@@ -916,6 +942,14 @@
                 if (state.metrics.length > 0 && state.dimensions.length > 0) {
                     const groups = state.dimensions.map(d => `${state.aliases[d.table]}.${d.col}`);
                     sql += `<span class="text-blue-400 font-bold">GROUP BY</span>\n    ${groups.join(',\n    ')}\n`;
+                }
+                
+                // 6. HAVING clause
+                if (havings.length > 0) {
+                    sql += `<span class="text-blue-400 font-bold">HAVING</span> ${havings[0]}\n`;
+                    for (let i = 1; i < havings.length; i++) {
+                        sql += `   <span class="text-blue-400 font-bold">AND</span> ${havings[i]}\n`;
+                    }
                 }
 
                 sql += ';';
