@@ -25,6 +25,9 @@
         
         /* Drag & Drop highlights */
         .drag-over { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+        
+        /* SQL Guide Styles */
+        .guide-sql-block { font-family: 'Fira Code', monospace; line-height: 1.6; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-gray-800">
@@ -34,12 +37,12 @@
             <div class="bg-red-600 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-md shadow-red-200">
                 <i class="fas fa-chart-pie text-lg"></i>
             </div>
-            <div>
-                <h1 class="text-lg font-bold text-gray-900 leading-tight tracking-tight">11st Ad Query Builder</h1>
-                <p class="text-xs text-red-600 font-medium">Smart Auto-Join BI Engine</p>
-            </div>
+            <h1 class="font-bold text-lg text-gray-800 tracking-tight">11st Ad Data <span class="text-red-600 font-black">Query Builder</span></h1>
         </div>
-        <div class="flex gap-3">
+        <div class="flex gap-3 items-center">
+            <button onclick="app.openSqlExamples()" class="px-4 py-2 bg-blue-50 border border-blue-200 text-blue-600 rounded-md text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-book-open"></i> SQL 작성 가이드
+            </button>
             <button onclick="app.reset()" class="px-4 py-2 border border-gray-300 text-gray-600 rounded-md text-sm font-medium hover:bg-gray-50 transition flex items-center gap-2">
                 <i class="fas fa-undo"></i> 초기화
             </button>
@@ -207,6 +210,22 @@
 
     </main>
 
+    <!-- SQL Examples Modal (Redesigned as Guide) -->
+    <div id="sqlModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-slate-50 rounded-2xl shadow-2xl w-11/12 max-w-7xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-8 py-5 border-b border-gray-200 flex justify-between items-center bg-white shadow-sm z-10 shrink-0">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="fas fa-graduation-cap text-blue-600"></i> Hive SQL 실전 분석 가이드</h2>
+                    <p class="text-sm text-gray-500 mt-1">11번가 광고 데이터 마트 분석을 위해 실무에서 자주 사용되는 9가지 핵심 쿼리 패턴입니다.</p>
+                </div>
+                <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-red-500 text-2xl transition bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center hover:bg-red-50 hover:border hover:border-red-200"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-auto p-8 bg-gray-50" id="sqlGuideContainer">
+                <!-- Guide content dynamically generated here -->
+            </div>
+        </div>
+    </div>
+
     <script>
         // 1. Data Dictionary & ERD Representation
         // based on schema.md, erd.md, sql_examples.md
@@ -345,11 +364,12 @@
             baseTable: '',
             dimensions: [], // { id, table, col }
             metrics: [],    // { id, table, col, agg }
-            filters: [],    // { id, table, col, op, val }
+            filters: [],    // { id, table, col, op, val, logic }
             dateRange: { start: '', end: '' },
             aliases: {},    // Auto-generated table aliases { 'TABLE_NAME': 'a' }
             joinPaths: [],   // Calculated joins
-            joinOverrides: {} // 유저가 직접 덮어씌운 조인 조건 (이제 배열의 배열 형태를 가짐 [[colA1, colB1], [colA2, colB2]])
+            joinOverrides: {}, // 유저가 직접 덮어씌운 조인 조건 (이제 배열의 배열 형태를 가짐 [[colA1, colB1], [colA2, colB2]])
+            joinTypes: {}    // 커스텀 조인 타입 { 'TABLE_A->TABLE_B': 'INNER JOIN' }
         };
 
         let dragItemId = null;
@@ -361,6 +381,87 @@
                 this.renderSchemaExplorer();
                 this.setupDragAndDrop();
                 this.generateSQL();
+                this.parseAndRenderSqlGuide();
+            },
+
+            openSqlExamples: function() {
+                document.getElementById('sqlModal').classList.remove('hidden');
+            },
+
+            closeSqlExamples: function() {
+                document.getElementById('sqlModal').classList.add('hidden');
+            },
+
+            // Parse markdown text and convert to beautiful UI cards
+            parseAndRenderSqlGuide: function() {
+                const container = document.getElementById('sqlGuideContainer');
+                if(!container) return;
+
+                const blocks = SQL_EXAMPLES_MD.split(/\[질문 예시 \d+\]/);
+                let html = `<div class="space-y-6 max-w-5xl mx-auto">`;
+                
+                blocks.forEach((block, index) => {
+                    if (index === 0) return; // Skip preamble
+
+                    const parts = block.split(/\[답변 Hive SQL\]/);
+                    if (parts.length >= 2) {
+                        const questionText = parts[0].trim();
+                        let sqlText = parts[1].trim();
+                        
+                        // Clean up trailing tags if any
+                        sqlText = sqlText.replace(/\[학습 사례 시작\]/g, '').trim();
+
+                        const qLines = questionText.split('\n');
+                        const title = qLines[0].trim();
+                        const desc = qLines.slice(1).join('<br>').trim();
+
+                        html += `
+                            <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col">
+                                <div class="bg-blue-50/40 border-b border-gray-200 px-6 py-4">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm shrink-0">예제 ${index}</span>
+                                        <h4 class="text-base font-bold text-gray-800 leading-snug">${title}</h4>
+                                    </div>
+                                    ${desc ? `<div class="text-sm text-gray-600 ml-[62px] leading-relaxed mt-1 p-3 bg-white/80 rounded border border-gray-100">${desc}</div>` : ''}
+                                </div>
+                                <div class="relative group bg-[#1e1e1e] flex-1">
+                                    <div class="absolute top-0 right-0 p-3 flex justify-end bg-gradient-to-b from-[#1e1e1e] to-transparent w-full z-10">
+                                        <button onclick="app.copyText(this)" data-clipboard="${encodeURIComponent(sqlText)}" class="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-all shadow-sm flex items-center gap-1.5 border border-gray-600">
+                                            <i class="fas fa-copy"></i> SQL 복사
+                                        </button>
+                                    </div>
+                                    <div class="guide-sql-block text-[13px] text-gray-300 overflow-x-auto p-5 pt-8">${this.syntaxHighlight(sqlText)}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                html += `</div>`;
+                container.innerHTML = html;
+            },
+
+            syntaxHighlight: function(sql) {
+                // Simple highlighter
+                let res = sql
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|JOIN|LEFT|RIGHT|INNER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END)\b/gi, '<span class="text-blue-400 font-bold">$1</span>')
+                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER)\b/gi, '<span class="text-green-400">$1</span>')
+                    .replace(/'([^']*)'/g, '<span class="text-yellow-300">\'$1\'</span>');
+                return res;
+            },
+
+            copyText: function(btn) {
+                const text = decodeURIComponent(btn.getAttribute('data-clipboard'));
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check text-green-400"></i> 복사완료';
+                setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
             },
 
             reset: function() {
@@ -370,6 +471,7 @@
                 state.filters = [];
                 state.dateRange = { start: '', end: '' };
                 state.joinOverrides = {};
+                state.joinTypes = {};
                 
                 const startEl = document.getElementById('dateStart');
                 const endEl = document.getElementById('dateEnd');
@@ -598,16 +700,21 @@
                         colOpts += Object.keys(DB_SCHEMA[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('');
                     }
 
+                    const logicSelect = i > 0 ? `
+                        <select onchange="app.updateFilter(${i}, 'logic', this.value)" class="border border-blue-300 rounded p-1.5 font-bold text-blue-700 bg-blue-50 outline-none w-20 text-center focus:border-red-500 shrink-0">
+                            <option value="AND" ${f.logic === 'AND' ? 'selected' : ''}>AND</option>
+                            <option value="OR" ${f.logic === 'OR' ? 'selected' : ''}>OR</option>
+                        </select>
+                    ` : `<span class="w-20 text-center text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 rounded py-2 px-2 shrink-0">조건(WHERE)</span>`;
+
                     return `
                     <div class="flex items-center gap-2 text-xs bg-gray-50 p-2 border border-gray-200 rounded shadow-sm fade-in">
-                        <select onchange="app.updateFilter(${i}, 'agg', this.value)" class="border border-gray-300 rounded p-1.5 bg-purple-50 w-28 outline-none focus:border-red-500 text-purple-700 font-bold truncate">
-                            <option value="" ${!f.agg ? 'selected' : ''}>WHERE (기본)</option>
-                            <option value="SUM" ${f.agg === 'SUM' ? 'selected' : ''}>HAVING: SUM</option>
-                            <option value="COUNT" ${f.agg === 'COUNT' ? 'selected' : ''}>HAVING: COUNT</option>
-                            <option value="COUNT_DISTINCT" ${f.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>HAVING: C_DIST</option>
-                            <option value="AVG" ${f.agg === 'AVG' ? 'selected' : ''}>HAVING: AVG</option>
-                            <option value="MAX" ${f.agg === 'MAX' ? 'selected' : ''}>HAVING: MAX</option>
-                            <option value="MIN" ${f.agg === 'MIN' ? 'selected' : ''}>HAVING: MIN</option>
+                        ${logicSelect}
+                        <select onchange="app.updateFilter(${i}, 'agg', this.value)" class="border border-gray-300 rounded p-1.5 bg-purple-50 w-28 outline-none focus:border-red-500 text-purple-700 font-bold truncate shrink-0">
+                            <option value="" ${f.agg === '' ? 'selected' : ''}>WHERE</option>
+                            <option value="SUM" ${f.agg === 'SUM' ? 'selected' : ''}>HAVING(SUM)</option>
+                            <option value="COUNT" ${f.agg === 'COUNT' ? 'selected' : ''}>HAVING(COUNT)</option>
+                            <option value="COUNT_DISTINCT" ${f.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>HAVING(COUNT_DIST)</option>
                         </select>
                         <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 bg-white w-24 truncate outline-none focus:border-red-500">
                             ${tableOpts}
@@ -636,7 +743,7 @@
             addFilter: function() {
                 const active = Array.from(this.getActiveTables());
                 const defaultT = active.length > 0 ? active[0] : '';
-                state.filters.push({ table: defaultT, col: '', agg: '', op: '=', val: "''" });
+                state.filters.push({ table: defaultT, col: '', agg: '', op: '=', val: "''", logic: 'AND' });
                 this.renderFilters();
             },
             updateFilter: function(i, field, val) { 
@@ -740,6 +847,7 @@
                     const key = `${j.from}->${j.to}`;
                     // 조인 조건이 오버라이드 되어있으면 사용, 아니면 기본 조인키 배열을 2차원 배열로 감싸서 사용
                     const conditions = state.joinOverrides[key] || [ [...j.on] ];
+                    const currentJoinType = state.joinTypes[key] || 'LEFT JOIN';
                     
                     const currentOn = conditions[0]; // 대표 첫번째 조인키 표시용
                     const extraConds = conditions.length > 1 ? ` (+${conditions.length - 1}조건)` : '';
@@ -751,12 +859,18 @@
                     joinHtml += `
                         <div class="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
                             <span class="text-xs font-bold text-gray-700 flex items-center gap-2">
-                                <span class="truncate w-32 text-right" title="${j.from}">${j.from}</span>
+                                <select onchange="app.updateJoinType('${key}', this.value)" class="text-[10px] border border-purple-300 rounded p-1 font-bold text-purple-700 bg-purple-50 outline-none">
+                                    <option value="LEFT JOIN" ${currentJoinType === 'LEFT JOIN' ? 'selected' : ''}>LEFT JOIN</option>
+                                    <option value="INNER JOIN" ${currentJoinType === 'INNER JOIN' ? 'selected' : ''}>INNER JOIN</option>
+                                    <option value="RIGHT JOIN" ${currentJoinType === 'RIGHT JOIN' ? 'selected' : ''}>RIGHT JOIN</option>
+                                    <option value="UNION" ${currentJoinType === 'UNION' ? 'selected' : ''}>UNION</option>
+                                </select>
+                                <span class="truncate w-24 text-right" title="${j.from}">${j.from}</span>
                                 <i class="fas fa-arrow-right text-gray-400"></i>
-                                <span class="truncate w-32" title="${j.to}">${j.to}</span>
+                                <span class="truncate w-28" title="${j.to}">${j.to}</span>
                             </span>
                             <button onclick="app.addJoinCondition('${key}', '${j.on[0]}', '${j.on[1]}')" class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1.5 rounded border border-blue-200 hover:bg-blue-100 font-medium transition flex items-center">
-                                <i class="fas fa-plus mr-1"></i> 조건 추가 (AND)
+                                <i class="fas fa-plus mr-1"></i> 조건 추가
                             </button>
                         </div>
                     `;
@@ -814,6 +928,11 @@
                 this.generateSQL();
             },
 
+            updateJoinType: function(key, type) {
+                state.joinTypes[key] = type;
+                this.generateSQL();
+            },
+
             generateSQL: function() {
                 const out = document.getElementById('sqlOutput');
                 
@@ -850,117 +969,117 @@
                 });
 
                 if (selects.length === 0) {
-                    sql += `    ${state.aliases[state.baseTable]}.*\n`;
+                    sql += `    *\n`;
                 } else {
                     sql += selects.join(',\n') + '\n';
                 }
 
                 // 2. FROM clause
-                const baseInfo = DB_SCHEMA[state.baseTable];
-                sql += `<span class="text-blue-400 font-bold">FROM</span> ${baseInfo.db} ${state.aliases[state.baseTable]}\n`;
+                const baseDb = DB_SCHEMA[state.baseTable].db;
+                sql += `<span class="text-blue-400 font-bold">FROM</span> ${baseDb} ${state.aliases[state.baseTable]}\n`;
 
                 // 3. JOIN clauses
                 joins.forEach(j => {
-                    const toInfo = DB_SCHEMA[j.to];
                     const key = `${j.from}->${j.to}`;
                     const conditions = state.joinOverrides[key] || [ [...j.on] ];
-
-                    sql += `<span class="text-purple-400 font-bold">LEFT JOIN</span> ${toInfo.db} ${state.aliases[j.to]}\n`;
+                    const joinType = state.joinTypes[key] || 'LEFT JOIN';
                     
-                    const onClauses = conditions
-                        .filter(cond => cond[0] && cond[1]) // 둘 다 컬럼이 선택된 유효한 조건만 필터링
-                        .map((cond, idx) => {
-                            const prefix = idx === 0 ? '<span class="text-purple-400 font-bold">ON</span>' : '   <span class="text-purple-400 font-bold">AND</span>';
-                            return `    ${prefix} ${state.aliases[j.from]}.${cond[0]} = ${state.aliases[j.to]}.${cond[1]}`;
-                        });
-
-                    if (onClauses.length > 0) {
-                        sql += onClauses.join('\n') + '\n';
+                    if (joinType === 'UNION') {
+                         sql += `<span class="text-blue-400 font-bold">UNION ALL</span>\n<span class="text-blue-400 font-bold">SELECT</span> ... <span class="text-blue-400 font-bold">FROM</span> ${DB_SCHEMA[j.to].db} ${state.aliases[j.to]}\n`;
                     } else {
-                        sql += `    <span class="text-purple-400 font-bold">ON</span> 1=1 <span class="text-gray-500">-- 조인 컬럼을 선택해주세요</span>\n`;
+                        sql += `<span class="text-blue-400 font-bold">${joinType}</span> ${DB_SCHEMA[j.to].db} ${state.aliases[j.to]}\n`;
+                        
+                        const onClauses = conditions.map((cond, idx) => {
+                            if (!cond[0] || !cond[1]) return '';
+                            return `    ${idx === 0 ? '<span class="text-blue-400 font-bold">ON</span>' : '<span class="text-purple-400 font-bold">AND</span>'} ${state.aliases[j.from]}.${cond[0]} = ${state.aliases[j.to]}.${cond[1]}`;
+                        }).filter(Boolean);
+                        
+                        if (onClauses.length > 0) {
+                            sql += onClauses.join('\n') + '\n';
+                        } else {
+                            sql += `    <span class="text-blue-400 font-bold">ON</span> 1=1 -- 설정된 조인 조건 없음\n`;
+                        }
                     }
                 });
 
                 // 4. WHERE clause
                 const wheres = [];
-                const havings = [];
                 
-                // Format Date based on partition type (YYYY-MM-DD 형태 파싱 후 8자리 추출)
-                let dStart = state.dateRange.start ? state.dateRange.start.replace(/[-T:]/g, '').substring(0, 8) : null;
-                let dEnd = state.dateRange.end ? state.dateRange.end.replace(/[-T:]/g, '').substring(0, 8) : null;
-                
-                if (dStart || dEnd) {
-                    const pCol = baseInfo.part;
-                    const alias = state.aliases[state.baseTable];
+                // Partition Date Condition
+                if (state.dateRange.start && state.dateRange.end) {
+                    let start = state.dateRange.start.replace(/-/g, '');
+                    let end = state.dateRange.end.replace(/-/g, '');
+                    let partCol = DB_SCHEMA[state.baseTable].part;
                     
-                    // AD_KEYWORD 테이블의 경우 yyyymmdd02 형식 적용
                     if (state.baseTable === 'AD_KEYWORD') {
-                        if(dStart) dStart += '02';
-                        if(dEnd) dEnd += '02';
+                        start += '02';
+                        end += '02';
                     }
-
-                    if (dStart && dEnd && dStart === dEnd) {
-                        wheres.push(`${alias}.${pCol} = '${dStart}'`);
-                    } else if (dStart && dEnd) {
-                        wheres.push(`${alias}.${pCol} <span class="text-yellow-300">BETWEEN</span> '${dStart}' <span class="text-yellow-300">AND</span> '${dEnd}'`);
-                    } else if (dStart) {
-                        wheres.push(`${alias}.${pCol} >= '${dStart}'`);
-                    } else if (dEnd) {
-                        wheres.push(`${alias}.${pCol} <= '${dEnd}'`);
-                    }
+                    
+                    wheres.push(`${state.aliases[state.baseTable]}.${partCol} <span class="text-blue-400 font-bold">BETWEEN</span> '${start}' <span class="text-blue-400 font-bold">AND</span> '${end}'`);
                 }
 
-                // Custom Filters
-                state.filters.forEach(f => {
-                    if (f.col && f.val) {
-                        const alias = state.aliases[f.table] || f.table;
-                        // basic string parsing to colorize values
-                        const valFormat = f.val.includes("'") ? `<span class="text-yellow-400">${f.val}</span>` : f.val;
-                        
-                        if (f.agg) { // HAVING condition
-                            let aggExpr = '';
-                            if (f.agg === 'COUNT_DISTINCT') {
-                                aggExpr = `<span class="text-green-400">COUNT</span>(<span class="text-green-400">DISTINCT</span> ${alias}.${f.col})`;
-                            } else {
-                                aggExpr = `<span class="text-green-400">${f.agg}</span>(${alias}.${f.col})`;
-                            }
-                            havings.push(`${aggExpr} ${f.op} ${valFormat}`);
-                        } else { // WHERE condition
-                            wheres.push(`${alias}.${f.col} ${f.op} ${valFormat}`);
+                // User Filters
+                const havingFilters = [];
+                state.filters.forEach((f, idx) => {
+                    if (!f.table || !f.col) return;
+                    
+                    let condStr = '';
+                    let colExpr = `${state.aliases[f.table]}.${f.col}`;
+                    
+                    if (f.agg) {
+                        if (f.agg === 'COUNT_DISTINCT') {
+                            colExpr = `COUNT(DISTINCT ${colExpr})`;
+                        } else {
+                            colExpr = `${f.agg}(${colExpr})`;
                         }
+                    }
+                    
+                    condStr += `${colExpr} ${f.op} ${f.val}`;
+
+                    if (f.agg) {
+                        havingFilters.push({logic: f.logic, str: condStr, idx: idx});
+                    } else {
+                        wheres.push({logic: f.logic, str: condStr, idx: idx});
                     }
                 });
 
                 if (wheres.length > 0) {
-                    sql += `<span class="text-blue-400 font-bold">WHERE</span> ${wheres[0]}\n`;
-                    for (let i = 1; i < wheres.length; i++) {
-                        sql += `  <span class="text-blue-400 font-bold">AND</span> ${wheres[i]}\n`;
-                    }
+                    sql += `<span class="text-blue-400 font-bold">WHERE</span>\n`;
+                    let wIdx = 0;
+                    wheres.forEach((w) => {
+                        if (typeof w === 'string') {
+                            sql += `    ${wIdx > 0 ? '<span class="text-blue-400 font-bold">AND</span> ' : ''}${w}\n`;
+                            wIdx++;
+                        } else {
+                            sql += `    ${wIdx > 0 ? `<span class="text-blue-400 font-bold">${w.logic}</span> ` : ''}${w.str}\n`;
+                            wIdx++;
+                        }
+                    });
                 }
 
                 // 5. GROUP BY clause
-                if (state.metrics.length > 0 && state.dimensions.length > 0) {
-                    const groups = state.dimensions.map(d => `${state.aliases[d.table]}.${d.col}`);
-                    sql += `<span class="text-blue-400 font-bold">GROUP BY</span>\n    ${groups.join(',\n    ')}\n`;
-                }
-                
-                // 6. HAVING clause
-                if (havings.length > 0) {
-                    sql += `<span class="text-blue-400 font-bold">HAVING</span> ${havings[0]}\n`;
-                    for (let i = 1; i < havings.length; i++) {
-                        sql += `   <span class="text-blue-400 font-bold">AND</span> ${havings[i]}\n`;
-                    }
+                if (state.dimensions.length > 0 && state.metrics.length > 0) {
+                    const groups = state.dimensions.map((d, i) => i + 1).join(', ');
+                    sql += `<span class="text-blue-400 font-bold">GROUP BY</span> ${groups}\n`;
                 }
 
-                sql += ';';
+                // 6. HAVING clause
+                if (havingFilters.length > 0) {
+                    sql += `<span class="text-blue-400 font-bold">HAVING</span>\n`;
+                    havingFilters.forEach((h, i) => {
+                        sql += `    ${i > 0 ? `<span class="text-blue-400 font-bold">${h.logic}</span> ` : ''}${h.str}\n`;
+                    });
+                }
+
                 out.innerHTML = sql;
             },
 
             copySQL: function() {
-                const el = document.getElementById('sqlOutput');
-                // Create a temporary textarea to get raw text (without HTML tags)
+                const out = document.getElementById('sqlOutput');
+                const text = out.innerText;
                 const temp = document.createElement('textarea');
-                temp.value = el.innerText;
+                temp.value = text;
                 document.body.appendChild(temp);
                 temp.select();
                 document.execCommand('copy');
@@ -970,38 +1089,413 @@
                 toast.classList.remove('translate-x-full', 'opacity-0');
                 setTimeout(() => {
                     toast.classList.add('translate-x-full', 'opacity-0');
-                }, 2000);
+                }, 3000);
             }
         };
 
-        // Search logic for sidebar
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            const term = e.target.value.toLowerCase();
-            const groups = document.querySelectorAll('#schemaExplorer > div');
-            
-            groups.forEach(group => {
-                const title = group.querySelector('.font-bold').innerText.toLowerCase();
-                const cols = Array.from(group.querySelectorAll('div[draggable="true"]')).map(el => el.innerText.toLowerCase());
-                
-                const matchTable = title.includes(term);
-                const matchCol = cols.some(col => col.includes(term));
-                
-                if (matchTable || matchCol) {
-                    group.style.display = 'block';
-                    // Auto-expand if column matches
-                    if(matchCol && term !== '') {
-                        const id = title.toUpperCase(); // simplistic id matching
-                        const content = group.querySelector(`#cols-${id}`);
-                        if(content && content.classList.contains('hidden')){
-                            app.toggleCollapse(id);
-                        }
-                    }
-                } else {
-                    group.style.display = 'none';
-                }
-            });
-        });
+        // SQL Examples Content
+        const SQL_EXAMPLES_MD = `[학습 사례 시작]
 
+[질문 예시 1]
+26년3월26일에 발생한 직방 기준 검색QC랑 검색 세션수, 그리고 서비스 전 영역에서 발생한 세션수랑 pv수 알려줘.
+추가로 동일한 일자의 OM결제거래액, om직방 결제거래액, 리테일 결제거래액, om이랑 리테일 포함한 총 결제거래액도 같이 알려줘.
+
+[답변 Hive SQL]
+SELECT
+    ta.dt,
+    sum(ta.sch_sess_cnt) as sch_sess_cnt,
+    sum(ta.total_sess_cnt) as total_sess_cnt,
+    sum(ta.qc) as qc,
+    sum(ta.pv) as pv,
+    sum(ta.total_pay) as total_pay,
+    sum(ta.om_pay) as om_pay,
+    sum(ta.om_drct_pay) as om_drct_pay,
+    sum(ta.retail_pay) as retail_pay
+FROM (
+    SELECT 
+        dt,
+        sum(if(poc ='Total' and page_type = 'Total',session_cnt,0)) - sum(if(page_type ='팝업',session_cnt,0)) total_sess_cnt,
+        sum(if(page_type in ('메인홈탭','상품상세','베스트탭','기타'),pv,0)) - sum(if(page_type ='팝업',pv,0)) as pv,
+        0 as sch_sess_cnt,
+        0 as qc,
+        0 as total_pay,
+        0 as om_pay,
+        0 as om_drct_pay,
+        0 as retail_pay
+    FROM share_ad.svc_traffic_metric_daily 
+    WHERE dt = '20260326'  
+    group by dt
+    
+    union all
+    
+    SELECT 
+        dt,
+        0 as total_sess_cnt,
+        0 as pv,
+        sum(session_cnt) as sch_sess_cnt,
+        sum(qc) as qc,
+        0 as total_pay,
+        0 as om_pay,
+        0 as om_drct_pay,
+        0 as retail_pay
+    FROM SHARE_AD.SCH_METRIC_SMR_DAILY 
+    WHERE dt = '20260326'  
+        and drct_vst = 'Y'
+        and poc_clf in ('app+mw','pc')
+    group by dt
+    
+    union all
+    
+    SELECT 
+         dt,
+         0 as total_sess_cnt,
+         0 as pv,
+         0 as sch_sess_cnt, 
+         0 as qc,
+         sum(if(om_yn = 'OM' or retail_seller_nm = '리테일BM셀러',pay_amt_drct,0)) as total_pay,
+         sum(if(om_yn = 'OM',pay_amt_drct,0)) as om_pay,
+         sum(if(om_yn = 'OM' and drct_yn = '직방',pay_amt_drct,0)) as om_drct_pay,
+         sum(if(retail_seller_nm = '리테일BM셀러',pay_amt_drct,0)) as retail_pay
+    FROM share_ad.trans_ad_rel_pay_amt_v3 
+    WHERE dt = '20260326'
+    group by dt
+)ta
+group by ta.dt
+;
+
+[질문 예시 2]
+아래 기간에 발생한 통합검색 영역의 QC랑 키워드수를 일자, 시간대, 디바이스별로 구분해서 알려줘.
+그리고 포커스 응답QC랑 키워드수도 같이 알려줘.
+- 기간: 2023.07.03~2023.07.09 
+
+[답변 Hive SQL]
+SELECT  
+   DT,
+   SUBSTR(base_time,9,2) as hr,
+    POC_CL_CD,
+    COUNT(DISTINCT IF(PAGE_TYPE ='검색', KEYWORD_GRP_ID, NULL)) AS QC,
+    COUNT(DISTINCT IF(PAGE_TYPE ='검색', LOWER(REPLACE(KEYWORD, ' ', '')), NULL)) AS SCH_KW_CNT,
+   NVL(COUNT(IF(PAGE_TYPE ='검색' AND NVL(GET_JSON_OBJECT(SEARCH_PRJ, '$.focusTotalCnt'),0)>0, KEYWORD_GRP_ID, NULL)),0) AS FOCUS_RESP_QC,	      
+   NVL(COUNT(DISTINCT IF(PAGE_TYPE ='검색' AND NVL(GET_JSON_OBJECT(SEARCH_PRJ, '$.focusTotalCnt'),0) > 0,LOWER(REPLACE(KEYWORD, ' ', '')),NULL)),0) AS FOCUS_RESP_KW		
+FROM SEARCH.SCH_11ST_LOG_CLIENT_BASE
+WHERE 
+    DT BETWEEN 20230703 AND 20230709
+	AND (PAGE_TYPE IN ('검색','검색PV')
+		OR (CVS_YN='Y' AND SEARCH_PROD_YN='Y')
+		OR CLK_YN='Y'
+		OR IMPRS_YN ='Y')
+	AND NVL(VERTICAL_YN, 'N') = 'N'
+	AND page_id = '/search_result/all'  -- 통합검색
+GROUP BY
+   DT,
+   SUBSTR(base_time,9,2),
+  POC_CL_CD
+;
+
+[질문 예시 3]
+아래 기간에 발생한 통합검색 영역의 QC랑 키워드수를 일자, 디바이스별로 구분해서 알려줘.
+그리고 포커스 응답QC랑 키워드수도 같이 알려줘.
+- 기간: 2023.07.03~2023.07.09 
+
+[답변 Hive SQL]
+SELECT  
+   DT,
+    POC_CL_CD,
+    COUNT(DISTINCT IF(PAGE_TYPE ='검색', KEYWORD_GRP_ID, NULL)) AS QC,
+    COUNT(DISTINCT IF(PAGE_TYPE ='검색', LOWER(REPLACE(KEYWORD, ' ', '')), NULL)) AS SCH_KW_CNT,
+   NVL(COUNT(IF(PAGE_TYPE ='검색' AND NVL(GET_JSON_OBJECT(SEARCH_PRJ, '$.focusTotalCnt'),0)>0, KEYWORD_GRP_ID, NULL)),0) AS FOCUS_RESP_QC,	      
+   NVL(COUNT(DISTINCT IF(PAGE_TYPE ='검색' AND NVL(GET_JSON_OBJECT(SEARCH_PRJ, '$.focusTotalCnt'),0) > 0,LOWER(REPLACE(KEYWORD, ' ', '')),NULL)),0) AS FOCUS_RESP_KW		
+FROM SEARCH.SCH_11ST_LOG_CLIENT_BASE
+WHERE 
+    DT BETWEEN 20230703 AND 20230709
+	AND (PAGE_TYPE IN ('검색','검색PV')
+		OR (CVS_YN='Y' AND SEARCH_PROD_YN='Y')
+		OR CLK_YN='Y'
+		OR IMPRS_YN ='Y')
+	AND NVL(VERTICAL_YN, 'N') = 'N'
+	AND page_id = '/search_result/all'  -- 통합검색
+GROUP BY
+   DT,
+  POC_CL_CD
+;
+
+[질문 예시 4]
+3월1일에 mwsrch00 영역에서 발생한 포커스클릭의 노출, 클릭 등 주요 지표를 노출 구간(1~4위 까지는 "A영역", 그 밑은 "B영역")에 따라 구하는 쿼리 짜줘.
+
+[답변 Hive SQL]
+select
+	ta.dt	dt,
+	ta.area area,
+	sum(ta.imps) imps,
+	sum(ta.imps)/sum(ta.resp_cnt) depth,
+	sum(ta.clk) clk,
+	sum(ta.cvs_amt)/(sum(ta.rev)*1.1) roas,
+	sum(ta.rev) rev
+from
+	(
+	SELECT  
+		part_hour as dt, 
+		IF(display_rank in (1,2,3,4),"A영역","B영역") AS area,
+		count(distinct response_id) resp_cnt,
+		sum(impression) imps, 
+		0 clk,
+		0 rev,
+		0 cvs_amt
+	FROM 
+		ad_platform.vine_app_new_ad_logserver_live_parse_v5 
+	where
+		part_hour = 20260301
+		and ad_unit_id = 'MWSRCH00'
+		and transaction_type = 'imp'
+	GROUP BY
+		part_hour, 
+		IF(display_rank in (1,2,3,4),"A영역","B영역")
+
+	UNION ALL
+			
+	SELECT 
+		part_hour as dt, 
+		IF(display_rank in (1,2,3,4),"A영역","B영역") AS area,
+		0 resp_cnt,
+		0 imps,
+		sum(valid_cnt) val_clk,
+		sum(non_free_point_amount+free_point_amount+cash_amount) rev,
+		0 cvs_amt
+	FROM 
+		ad_platform.dsp_ad_fee_log_live_parse_v5 ta
+	where 
+		ta.part_hour = 20260301
+		and ta.ad_unit_id = 'MWSRCH00'
+		and ta.pay_result = 101
+	GROUP BY
+		part_hour, 
+		IF(display_rank in (1,2,3,4),"A영역","B영역")
+					
+	UNION ALL
+						
+	SELECT
+		part_hour as dt, 
+		IF(display_rank in (1,2,3,4),"A영역","B영역") AS area,
+		0 resp_cnt,
+		0 imps,
+		0 clk,
+		0 rev,
+		SUM(CONVERSION_PRICE) CVS_AMT
+	FROM
+		ad_platform.vine_new_ad_log_cvr_live_v5 N		
+	WHERE
+		N.PART_HOUR = 20260301
+		and PAY_RESULT = '101'
+		and TRANSACTION_TYPE = 'conversion'	
+		and ad_unit_id = 'MWSRCH00'
+	GROUP BY
+		part_hour , 
+		IF(display_rank in (1,2,3,4),"A영역","B영역")
+	) ta	
+group by
+	ta.dt,
+	ta.area
+;
+
+[질문 예시 5]
+직전일까지 3월에 포커스클릭에 입찰한 상품수를 on상태인 것과 전시여부까지 고려한 상태인 것을 구분해서 각각 일자별로 구하고 싶어.
+추가로 포커스클릭 중에서도 AI캠페인의 상품수만도 별도로 확인하려고 해.
+
+[답변 Hive SQL]
+select
+  	dt
+ 	,count(distinct if(adver_LNKG_YN='Y' and del_yn='N' and actvtn_yn='Y' and camp_period_yn='Y',prd_no,null )) focus_prd_ad_on_cnt
+ 	,count(distinct if(adver_LNKG_YN='Y' and del_yn='N' and actvtn_yn='Y' and camp_period_yn='Y' and live_prd_yn='Y' and lnkg_impsb_yn='N',prd_no,null )) focus_prd_ad_on_live_cnt
+	,count(distinct if(ai_yn='Y' and adver_LNKG_YN='Y' and del_yn='N' and actvtn_yn='Y' and camp_period_yn='Y',prd_no,null )) ai_prd_ad_on_cnt
+ 	,count(distinct if(ai_yn='Y' and adver_LNKG_YN='Y' and del_yn='N' and actvtn_yn='Y' and camp_period_yn='Y' and live_prd_yn='Y' and lnkg_impsb_yn='N',prd_no,null )) ai_prd_ad_on_live_cnt
+from
+	SHARE_AD.FOCUS_BID_TRGT_TOTAL
+where
+	dt like '202603%' 
+ group by dt
+;	
+
+[질문 예시 6]
+6월부터 어제까지 일자별로 캠페인 예산이 100% 소진 완료되었던 광고 캠페인 수를 시간대, AI캠페인 유무를 구분해서 집계하고 싶어
+
+[답변 Hive SQL]
+SELECT 		
+	part_date as dt,	
+	ai_yn,	
+	substr(dd_allw_bdg_over_dt,12,2) bdg_over_hr,	
+	count(distinct id) camp_cnt	
+FROM ad_platform.dbm_dsp_camp 		
+WHERE 		
+	part_date between 20260601 and 20260715	
+	and (DATE_FORMAT(camp_end_dy,'yyyyMMdd') >= part_date 	
+		or camp_end_dy is null)
+	and del_dt is null	
+	and actvtn_yn = 'Y'	
+	and DATE_FORMAT(dd_allw_bdg_over_dt,'yyyyMMdd') = part_date	
+group by 		
+	part_date,	
+	ai_yn,	
+	substr(dd_allw_bdg_over_dt,12,2)	
+;		
+
+[질문 예시 7]
+검색 플랫폼에서 진행한 AB테스트의 실적을 영역과 컬렉션에 따라 확인하고 싶어.
+세션수, 포커스클릭 광고 실적부터 QC, 광고가 붙어있던 QC 등 주요 지표들을 집계해줘
+
+[답변 Hive SQL]
+SELECT 				
+	sch_ab_test				
+	,split(ta.action_id, '\\.')[1] as area
+	,GET_JSON_OBJECT(ta.body, '$.collection_object.name') as col_name
+	,COUNT(DISTINCT SESSION_ID) AS SESSION_CNT			
+	,NVL(SUM(CASE WHEN ACTION_ID ='impression.focus.product' THEN 1 ELSE 0 END),0) AS FOCUS_vIMP			
+	,NVL(SUM(CASE WHEN ACTION_ID ='click.focus.product' THEN 1 ELSE 0 END),0) AS FOCUS_CLK			
+	,NVL(COUNT(IF(PAGE_TYPE ='검색', KEYWORD_GRP_ID, NULL)),0) AS QC	  		
+	,nvl(count(distinct if(ACTION_ID ='impression.focus.product' and imprs_yn='Y',keyword_grp_id, null)),0) as imprs_qc			
+	,NVL(COUNT(IF(PAGE_TYPE ='검색' AND NVL(GET_JSON_OBJECT(SEARCH_PRJ, '$.focusTotalCnt'),0)>0, KEYWORD_GRP_ID, NULL)),0) AS FOCUS_RESP_QC	
+    ,avg(nvl(GET_JSON_OBJECT(body, '$.indexing_no'),null)) avg_rnk
+FROM SEARCH.SCH_11ST_LOG_CLIENT_BASE ta			
+WHERE 			
+	DT BETWEEN 20250520 AND 20250526 		
+	AND (PAGE_TYPE IN ('검색','검색PV')		
+		OR (CVS_YN='Y' AND SEARCH_PROD_YN='Y')	
+		OR CLK_YN='Y'	
+		OR IMPRS_YN ='Y')	
+	AND NVL(VERTICAL_YN, 'N') = 'N'		
+	AND POC_CL_CD IN ('app','mw')		
+	AND page_id = '/search_result/all'		
+	AND sch_ab_test_yn = 'Y'		
+	AND sch_ab_test in ('A','B','C')	
+GROUP BY			
+	sch_ab_test		
+	,split(ta.action_id, '\\.')[1]
+	,GET_JSON_OBJECT(ta.body, '$.collection_object.name')		
+;		
+
+[질문 예시 8]
+어제 판매중이었던 상품이 포커스클릭 광고에 입찰되어있던 상품인지를 확인하고, 해당 상품의 거래액 정보(결제거래 즉차, 결제 순매출액, 결제 상품 수량)와 포커스클릭 과금액이 얼마였는지 집계해줘.
+이때 상품 정보 확인을 위해 카테고리 번호랑 판매가, 할인모음가도 같이 추출하고 싶어.
+
+[답변 Hive SQL]
+with base AS (
+	select
+		prd_no,
+		sel_mnbd_no as seller_no,
+		SEL_MTHD_CD,
+		lctgr_no as ctgr1_no,
+		mctgr_no as ctgr2_no,
+		sctgr_no as ctgr3_no,
+		SEL_PRC,
+		FINAL_DSC_PRC
+	from 11st.tb_evs_ods_m_dp_live_prd 
+	WHERE 
+		PART_DATE = '20260701'
+		and sel_stat_cd = '103' -- 판매중 상태
+),cpc_focus as (
+	select
+		distinct prd_no
+	from SHARE_AD.focus_bid_trgt_total
+	where
+		dt  = '20260701'
+		and adver_LNKG_YN='Y' 
+		and del_yn='N' 
+		and actvtn_yn='Y' 
+		and camp_period_yn='Y'
+),ord as (   -- 결제 거래액
+    SELECT
+        ta.prd_no,
+        (ta.PAY_TRNS_AMT - ta.PAY_SELLER_BASIC_DSCNT_AMT_DRCT) AS PAY_AMT_DRCT, -- 결제 즉차
+        ta.PAY_NET_SALE_AMT, -- 결제 순매출액
+        ta.PAY_QTY -- 결제 상품 수량
+    FROM (
+        SELECT
+            PRD_NO
+            ,CAST(SUM(A.PAY_TRNS_AMT) AS BIGINT) AS PAY_TRNS_AMT
+            ,CAST(SUM(A.PAY_SELLER_BASIC_DSCNT_AMT_DRCT) AS BIGINT) AS PAY_SELLER_BASIC_DSCNT_AMT_DRCT
+			,SUM(A.PAY_SVC_USE_AMT)/1.1 - SUM(A.PAY_11ST_DSCNT_AMT) AS PAY_NET_SALE_AMT
+            ,SUM(PAY_PRD_QTY) PAY_QTY  
+        FROM 11ST.TB_EVS_ODS_F_SD_ORD_DETL_RSLT A
+        WHERE
+            A.PART_DATE = '20260701'
+            AND PAY_DT = '20260701'
+            AND PAY_TRNS_AMT>0
+        GROUP BY
+            PRD_NO 
+    ) ta 
+),AD as (
+	SELECT 
+		affiliation_product_key as prd_no,
+		sum(non_free_point_amount+free_point_amount+cash_amount) rev
+	FROM ad_platform.dsp_ad_fee_log_live_parse_v5 ta
+	where 
+		ta.part_hour = '20260701'
+		and ta.pay_result = 101
+	GROUP BY
+		affiliation_product_key
+)			
+  SELECT
+     ta.seller_no
+	 ,ta.sel_mthd_cd
+     ,ta.prd_no
+	 ,ta.ctgr1_no
+	 ,ta.ctgr2_no
+	 ,ta.ctgr3_no
+	 ,if(td.prd_no is not null,'Y','N') as cpc_yn
+     ,COALESCE(te.SEL_PRC, ta.SEL_PRC, tf.SEL_PRC) as SEL_PRC
+     ,COALESCE(te.FINAL_DSC_PRC, ta.FINAL_DSC_PRC, tf.buyl_cn_prc)  as FINAL_DSC_PRC
+     ,nvl(tg.PAY_AMT_DRCT,0) as PAY_AMT_DRCT
+     ,nvl(tg.PAY_NET_SALE_AMT,0) as PAY_NET_SALE_AMT
+     ,nvl(tg.PAY_QTY,0) as PAY_QTY
+	 ,nvl(th.rev,0) as ad_rev
+  FROM base ta
+  left join cpc_focus td on ta.prd_no = td.prd_no
+  LEFT JOIN 11st.ods_om_dp_live_prc te ON ta.PRD_NO = te.PRD_NO and te.part_date = '20260701'
+  LEFT JOIN 11st.tb_evs_ods_m_pd_prd_prc tf ON ta.PRD_NO = tf.PRD_NO and tf.part_date = '20260701'
+  LEFT JOIN ORD tg on ta.prd_no = tg.prd_no 
+  LEFT JOIN AD th on ta.prd_no = th.prd_no
+ ;
+
+[질문 예시 9]
+애드오피스에 가입된 셀러의 셀러별 잔액과 매핑되어있는 대행사, 광고주ID 정보를 알고 싶어. 
+
+[답변 Hive SQL]
+WITH mkr_map AS (
+  select
+        mapp.part_date,
+        mapp.ad_seller_id,
+        mapp.mkr_id,
+        mkr.agn_id
+  from ad_platform.dbm_dsp_ad_seller_mkr_mapp_newest mapp
+  left outer join
+         (
+            select
+                part_date,
+                id,
+                agn_id
+            from ad_platform.dbm_dsp_mkr
+            where
+                part_date = 20260720
+                and del_dt is null
+        ) mkr
+   on mapp.part_date= mkr.part_date and  mapp.mkr_id=mkr.id
+   where
+      mapp.part_date = 20260720
+      and mapp.del_dt is null
+ )
+select
+  sell.part_date,
+  id,
+  seller_no,  -- 회원번호
+  adver_id,   -- 광고주id
+  seller_blce_exstn_yn,  -- 셀러 잔액
+  mkr_id,  -- 마케터 id
+  agn.agn_nm -- 대행사명
+from ad_platform.dbm_dsp_ad_seller sell
+LEFT JOIN mkr_map on mkr_map.part_date = sell.part_date and sell.id = mkr_map.ad_seller_id
+LEFT JOIN ad_platform.dbm_dsp_agn agn on mkr_map.part_date = agn.part_date and mkr_map.agn_id = agn.id
+where sell.part_date = 20260720 AND DEL_DT is null
+;`;
+        
         // Start App
         window.onload = function() {
             app.init();
