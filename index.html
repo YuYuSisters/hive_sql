@@ -116,7 +116,7 @@
                             <!-- Items injected here -->
                             <div class="empty-state m-auto text-center text-gray-400">
                                 <i class="fas fa-mouse-pointer mb-2 text-lg"></i>
-                                <p class="text-xs">좌측에서 숫자형 컬럼을 추가하세요</p>
+                                <p class="text-xs">수치계산/카운트할 컬럼을 드래그하세요</p>
                             </div>
                         </div>
                     </div>
@@ -148,15 +148,15 @@
 
                     <!-- Mandatory Partition Date -->
                     <div class="bg-red-50/50 border border-red-100 p-4 rounded-lg mb-4">
-                        <div class="text-xs font-bold text-red-800 mb-2 flex items-center gap-1">
-                            <i class="fas fa-calendar-alt"></i> 파티션 기간 (dt / part_date / part_hour) <span class="text-red-500">*필수</span>
+                        <div id="partitionLabel" class="text-xs font-bold text-red-800 mb-2 flex items-center gap-1">
+                            <i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>
                         </div>
                         <div class="flex gap-3 items-center">
                             <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
                             <span class="text-gray-400 font-medium">~</span>
                             <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
                         </div>
-                        <p class="text-[10px] text-gray-500 mt-2">기준 테이블의 파티션 형식에 맞춰 자동으로 (yyyymmdd 또는 yyyymmddhh) 변환되어 쿼리에 적용됩니다.</p>
+                        <p id="partitionDesc" class="text-[10px] text-gray-500 mt-2">기준 테이블을 선택하면 파티션 컬럼(일자/시간)에 맞춰 입력 형식이 변경됩니다.</p>
                     </div>
 
                     <!-- Dynamic Filter List -->
@@ -370,8 +370,15 @@
                 state.filters = [];
                 state.dateRange = { start: '', end: '' };
                 state.joinOverrides = {};
-                document.getElementById('dateStart').value = '';
-                document.getElementById('dateEnd').value = '';
+                
+                const startEl = document.getElementById('dateStart');
+                const endEl = document.getElementById('dateEnd');
+                startEl.value = '';
+                endEl.value = '';
+                startEl.type = 'date';
+                endEl.type = 'date';
+                document.getElementById('partitionLabel').innerHTML = '<i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>';
+                document.getElementById('partitionDesc').innerHTML = '기준 테이블을 선택하면 파티션 컬럼(일자/시간)에 맞춰 입력 형식이 변경됩니다.';
                 
                 document.getElementById('baseTableSelect').value = '';
                 this.renderDimensions();
@@ -492,7 +499,8 @@
                 setupZone('metricsList', 'metric', (data) => {
                     // Default aggregation
                     let agg = 'SUM';
-                    if(!['num'].includes(DB_SCHEMA[data.table].cols[data.col])) agg = 'COUNT';
+                    // 문자/캐릭터형 컬럼인 경우 기본값을 고유값 카운트(COUNT_DISTINCT)로 설정
+                    if(!['num'].includes(DB_SCHEMA[data.table].cols[data.col])) agg = 'COUNT_DISTINCT';
                     
                     state.metrics.push({ id: Date.now(), agg: agg, ...data });
                     app.renderMetrics();
@@ -502,6 +510,27 @@
 
             setBaseTable: function(val) {
                 state.baseTable = val;
+                
+                if (val) {
+                    const partCol = DB_SCHEMA[val].part;
+                    const startEl = document.getElementById('dateStart');
+                    const endEl = document.getElementById('dateEnd');
+                    const labelEl = document.getElementById('partitionLabel');
+                    const descEl = document.getElementById('partitionDesc');
+
+                    if (partCol === 'part_hour') {
+                        startEl.type = 'datetime-local';
+                        endEl.type = 'datetime-local';
+                        if (labelEl) labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${partCol}) <span class="text-red-500">*필수</span>`;
+                        if (descEl) descEl.innerHTML = '기준 테이블 파티션에 맞춰 <b>시간 단위(yyyymmddhh)</b>로 조건이 적용됩니다.';
+                    } else {
+                        startEl.type = 'date';
+                        endEl.type = 'date';
+                        if (labelEl) labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${partCol}) <span class="text-red-500">*필수</span>`;
+                        if (descEl) descEl.innerHTML = '기준 테이블 파티션에 맞춰 <b>일 단위(yyyymmdd)</b>로 조건이 적용됩니다.';
+                    }
+                }
+                
                 this.generateSQL();
             },
 
@@ -537,6 +566,7 @@
                             <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="bg-green-50 text-green-700 font-bold border-none text-[10px] outline-none cursor-pointer p-0.5 rounded">
                                 <option value="SUM" ${m.agg==='SUM'?'selected':''}>SUM</option>
                                 <option value="COUNT" ${m.agg==='COUNT'?'selected':''}>COUNT</option>
+                                <option value="COUNT_DISTINCT" ${m.agg==='COUNT_DISTINCT'?'selected':''}>COUNT_DIST</option>
                                 <option value="AVG" ${m.agg==='AVG'?'selected':''}>AVG</option>
                                 <option value="MAX" ${m.agg==='MAX'?'selected':''}>MAX</option>
                             </select>
@@ -798,7 +828,11 @@
                     selects.push(`    ${state.aliases[d.table]}.${d.col}`);
                 });
                 state.metrics.forEach(m => {
-                    selects.push(`    <span class="text-green-400">${m.agg}</span>(${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
+                    if (m.agg === 'COUNT_DISTINCT') {
+                        selects.push(`    <span class="text-green-400">COUNT</span>(<span class="text-green-400">DISTINCT</span> ${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> count_dist_${m.col}`);
+                    } else {
+                        selects.push(`    <span class="text-green-400">${m.agg}</span>(${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
+                    }
                 });
 
                 if (selects.length === 0) {
@@ -836,26 +870,22 @@
                 // 4. WHERE clause
                 const wheres = [];
                 
-                // Format Date based on partition type (dt/part_date vs part_hour)
-                let dStart = state.dateRange.start ? state.dateRange.start.replace(/-/g, '') : null;
-                let dEnd = state.dateRange.end ? state.dateRange.end.replace(/-/g, '') : null;
+                // Format Date based on partition type (YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm 형태 파싱)
+                let dStart = state.dateRange.start ? state.dateRange.start.replace(/[-T:]/g, '').substring(0, 10) : null;
+                let dEnd = state.dateRange.end ? state.dateRange.end.replace(/[-T:]/g, '').substring(0, 10) : null;
                 
                 if (dStart || dEnd) {
                     const pCol = baseInfo.part;
                     const alias = state.aliases[state.baseTable];
                     
-                    // If table uses part_hour, append '00' to start and '23' to end for daily range
+                    // 테이블은 시간 단위인데, 기존 날짜 포맷(8자리)이 남아있을 경우의 방어 로직
                     if(pCol === 'part_hour') {
-                        if(dStart) dStart += '00';
-                        if(dEnd) dEnd += '23';
+                        if(dStart && dStart.length === 8) dStart += '00';
+                        if(dEnd && dEnd.length === 8) dEnd += '23';
                     }
 
-                    if (dStart && dEnd && state.dateRange.start === state.dateRange.end) {
-                        if(pCol === 'part_hour') {
-                             wheres.push(`${alias}.${pCol} <span class="text-yellow-300">BETWEEN</span> '${dStart}' <span class="text-yellow-300">AND</span> '${dEnd}'`);
-                        } else {
-                             wheres.push(`${alias}.${pCol} = '${dStart}'`);
-                        }
+                    if (dStart && dEnd && dStart === dEnd) {
+                        wheres.push(`${alias}.${pCol} = '${dStart}'`);
                     } else if (dStart && dEnd) {
                         wheres.push(`${alias}.${pCol} <span class="text-yellow-300">BETWEEN</span> '${dStart}' <span class="text-yellow-300">AND</span> '${dEnd}'`);
                     } else if (dStart) {
