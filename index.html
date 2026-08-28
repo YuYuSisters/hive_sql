@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>11st Ad Data Query Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .sql-font { font-family: 'Fira Code', monospace; }
+        
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ef4444; }
+
+        /* Animation classes */
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Drag & Drop highlights */
+        .drag-over { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-gray-800">
+
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center z-20 shadow-sm shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-red-600 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-md shadow-red-200">
+                <i class="fas fa-chart-pie text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-gray-900 leading-tight tracking-tight">11st Ad Query Builder</h1>
+                <p class="text-xs text-red-600 font-medium">Smart Auto-Join BI Engine</p>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="app.reset()" class="px-4 py-2 border border-gray-300 text-gray-600 rounded-md text-sm font-medium hover:bg-gray-50 transition flex items-center gap-2">
+                <i class="fas fa-undo"></i> 초기화
+            </button>
+            <button onclick="app.copySQL()" class="bg-red-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-red-700 shadow-md shadow-red-200 transition flex items-center gap-2">
+                <i class="fas fa-copy"></i> SQL 복사
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Sidebar: Data Schema Explorer -->
+        <aside class="w-72 border-r border-gray-200 bg-white flex flex-col h-full shrink-0 z-10 shadow-sm">
+            <div class="p-4 border-b border-gray-100">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="테이블/컬럼 검색..." 
+                           class="w-full text-sm border border-gray-300 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all">
+                </div>
+            </div>
+            
+            <div class="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Data Dictionary</span>
+                <i class="fas fa-database text-gray-400"></i>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" id="schemaExplorer">
+                <!-- Schema items dynamically injected here -->
+            </div>
+        </aside>
+
+        <!-- Center Panel: Query Builder (Data & Filters) -->
+        <div class="flex-1 flex flex-col min-w-0 bg-gray-50/50 overflow-y-auto border-r border-gray-200">
+            <div class="max-w-4xl w-full mx-auto p-6 space-y-6">
+                
+                <!-- Base Table Selection -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <i class="fas fa-layer-group text-red-500"></i> 기준 데이터 (Base Table)
+                    </h2>
+                    <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-shadow bg-gray-50 hover:bg-white cursor-pointer">
+                        <option value="">데이터 마트를 선택하세요 (필수)</option>
+                        <!-- Options injected via JS -->
+                    </select>
+                    <p class="text-[11px] text-gray-500 mt-2 ml-1"><i class="fas fa-info-circle"></i> 분석의 중심이 되는 메인 로그나 마스터 테이블을 먼저 선택하세요. 나머지 테이블은 자동 조인됩니다.</p>
+                </div>
+
+                <!-- Dimensions & Metrics -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Dimensions (Group By) -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
+                        <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
+                            <i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions)
+                        </h2>
+                        <p class="text-[10px] text-gray-400 mb-3">데이터를 그룹화할 기준 (예: 일자, 캠페인명)</p>
+                        
+                        <div id="dimensionsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2">
+                            <!-- Items injected here -->
+                            <div class="empty-state m-auto text-center text-gray-400">
+                                <i class="fas fa-mouse-pointer mb-2 text-lg"></i>
+                                <p class="text-xs">좌측에서 컬럼을 추가하세요</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics (Aggregations) -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
+                        <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
+                            <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
+                        </h2>
+                        <p class="text-[10px] text-gray-400 mb-3">합계, 평균 등을 계산할 값 (예: 클릭수, 거래액)</p>
+                        
+                        <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2">
+                            <!-- Items injected here -->
+                            <div class="empty-state m-auto text-center text-gray-400">
+                                <i class="fas fa-mouse-pointer mb-2 text-lg"></i>
+                                <p class="text-xs">좌측에서 숫자형 컬럼을 추가하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-filter text-purple-500"></i> 필터 조건 (Filters)
+                            </h2>
+                        </div>
+                        <button onclick="app.addFilter()" class="text-xs bg-purple-50 text-purple-600 px-3 py-1.5 rounded border border-purple-200 hover:bg-purple-100 font-medium transition">
+                            <i class="fas fa-plus mr-1"></i> 조건 추가
+                        </button>
+                    </div>
+
+                    <!-- Mandatory Partition Date -->
+                    <div class="bg-red-50/50 border border-red-100 p-4 rounded-lg mb-4">
+                        <div class="text-xs font-bold text-red-800 mb-2 flex items-center gap-1">
+                            <i class="fas fa-calendar-alt"></i> 파티션 기간 (dt / part_date / part_hour) <span class="text-red-500">*필수</span>
+                        </div>
+                        <div class="flex gap-3 items-center">
+                            <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+                            <span class="text-gray-400 font-medium">~</span>
+                            <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-2">기준 테이블의 파티션 형식에 맞춰 자동으로 (yyyymmdd 또는 yyyymmddhh) 변환되어 쿼리에 적용됩니다.</p>
+                    </div>
+
+                    <!-- Dynamic Filter List -->
+                    <div id="filterList" class="space-y-2">
+                        <!-- Filters injected here -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Panel: Live SQL Preview & Auto-Join Status -->
+        <div class="w-1/3 flex flex-col bg-[#1e1e1e] shrink-0 shadow-2xl z-20 relative">
+            <div class="bg-[#252526] px-5 py-3 border-b border-[#333] flex justify-between items-center">
+                <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2 tracking-wide">
+                    <i class="fas fa-code text-red-500"></i> Hive SQL Preview
+                </h3>
+                <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">Auto-Join Active</span>
+            </div>
+            
+            <!-- SQL Editor Area -->
+            <div class="flex-1 p-5 overflow-auto relative font-mono text-sm">
+                <!-- Toast -->
+                <div id="toast" class="absolute top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg text-sm font-medium transform transition-all duration-300 translate-x-full opacity-0 z-50">
+                    클립보드에 복사되었습니다!
+                </div>
+                
+                <pre id="sqlOutput" class="text-gray-300 whitespace-pre-wrap break-all sql-font leading-relaxed">
+<span class="text-gray-500">-- 기준 테이블과 분석 기준을 선택하면</span>
+<span class="text-gray-500">-- 관계를 분석하여 Hive SQL이 자동 생성됩니다.</span>
+
+<span class="text-blue-400 font-bold">SELECT</span> 
+    * 
+<span class="text-blue-400 font-bold">FROM</span> dual;
+                </pre>
+            </div>
+
+            <!-- Auto-Join Status Monitor -->
+            <div class="h-48 border-t border-[#333] bg-[#1a1a1a] p-4 flex flex-col">
+                <h4 class="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1 uppercase tracking-wider">
+                    <i class="fas fa-link text-gray-500"></i> 조인 경로 분석 (Join Path)
+                </h4>
+                <div id="joinStatus" class="flex-1 overflow-y-auto text-[11px] text-gray-500 space-y-1 font-mono">
+                    대기 중... (테이블을 추가하세요)
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // 1. Data Dictionary & ERD Representation
+        // based on schema.md, erd.md, sql_examples.md
+        const DB_SCHEMA = {
+            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인 (일)', part: 'dt', type: 'dim', cols: {
+                'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': ''
+            }},
+            'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'id': 'PK', 'ad_grp_nm': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'bid_type_val': '', 'bid_amt': 'num', 'mon_imp_time_val': 'num', 'tue_imp_time_val': 'num', 'wed_imp_time_val': 'num', 'thu_imp_time_val': 'num', 'fri_imp_time_val': 'num', 'sat_imp_time_val': 'num', 'sun_imp_time_val': 'num', 'actvtn_yn': '', 'camp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ad_imp_mdia_val': '', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'ai_yn': ''
+            }},
+            'AD_TARGET': { db: 'ad_platform.dbm_dsp_ad_trgt_live', name: '광고타겟 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'id': 'PK', 'prod_no': 'FK', 'bid_type_val': '', 'bid_amt': 'num', 'keywd_reg_way_val': '', 'actvtn_yn': '', 'ad_grp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'lnkg_impsb_yn': '', 'ai_yn': ''
+            }},
+            'AD_KEYWORD': { db: 'ad_platform.dbm_dsp_ad_keywd_live', name: '키워드입찰 (일)', part: 'part_hour', type: 'dim', cols: {
+                'part_hour': '', 'id': 'PK', 'keywd_nm': '', 'bid_type_val': '', 'bid_amt': 'num', 'actvtn_yn': '', 'ad_trgt_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'rnk_auto_bid_actvtn_yn': '', 'hope_rnk': 'num', 'max_bid_amt': 'num', 'adj_amt': 'num', 'rnk_auto_bid_dt': '', 'expire_dt': ''
+            }},
+            'AGENCY': { db: 'ad_platform.dbm_dsp_agn', name: '대행사 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'id': 'PK', 'agn_nm': '', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num'
+            }},
+            'MARKETER': { db: 'ad_platform.dbm_dsp_mkr', name: '마케터 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'id': 'PK', 'mkr_login_id': '', 'glbl_key_val': 'num', 'extr_mkr_no': '', 'mkr_stat_val': '', 'mkr_auth_type_val': '', 'email_alrm_yn': '', 'cphn_alrm_yn': '', 'etiq_alrm_yn': '', 'email_alrm_agree_dt': '', 'cphn_alrm_agree_dt': '', 'etiq_alrm_agree_dt': '', 'agn_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num'
+            }},
+            'SELLER': { db: 'ad_platform.dbm_dsp_ad_seller', name: '셀러 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'id': 'PK', 'seller_no': 'num', 'biz_no': '', 'seller_id': '', 'rep_seller_yn': '', 'seller_blce_exstn_yn': '', 'mapp_mkr_ent_yn': '', 'adver_mapp_dt': '', 'adver_id': 'num', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ptnr_yn': ''
+            }},
+            'SELLER_MARKETER_MAP': { db: 'ad_platform.dbm_dsp_ad_seller_mkr_mapp_newest', name: '셀러-마케터매핑 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'id': 'PK', 'ad_seller_mkr_mapp_chg_dy': '', 'ad_seller_id': 'FK', 'mkr_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'gdwl_type': ''
+            }},
+            'PRODUCT': { db: '11st.tb_evs_ods_m_dp_live_prd', name: '전시상품 (일)', part: 'part_date', type: 'dim', cols: {
+                'part_date': '', 'prd_no': 'PK', 'mstr_prd_no': 'num', 'sel_mnbd_no': 'num', 'prd_nm': '', 'wirelss_prd_nm': '', 'advrt_stmt': '', 'sel_bgn_dy': '', 'sel_end_dy': '', 'sel_mthd_cd': '', 'sel_stat_cd': '', 'dlv_cst_pay_typ_cd': '', 'dlv_cst_inst_basi_cd': '', 'snd_pln_trm': 'num', 'prd_stat_cd': '', 'seller_prd_cd': '', 'minor_sel_cn_yn': '', 'abrd_brand_yn': '', 'lctgr_no': 'num', 'mctgr_no': 'num', 'sctgr_no': 'num', 'dctgr_no': 'num', 'std_ctgr_no': 'num', 'mstr_prd_kd_cd': '', 'sel_prc': 'num', 'final_dsc_prc': 'num', 'frgft_yn': '', 'seller_hmpg_nm': '', 'sellershp_img_url': '', 'opt_yn': '', 'prd_evl_tot_qty': 'num', 'prd_tot_evl_scor': 'num', 'buy_satisfy': 'num', 'exprt_review_cnt': 'num', 'nck_nm': '', 'mem_id': '', 'brand_cd': '', 'brand_nm': '', 'best_score': 'num', 'mvp_score': 'num', 'pop_score': 'num', 'is_mvp_yn': '', 'is_premium_item': '', 'premium_item_bgn_dy': '', 'premium_item_end_dy': '', 'is_bg_color_item': '', 'bg_color_item_bgn_dy': '', 'bg_color_item_end_dy': '', 'is_focus_item': '', 'focus_item_bgn_dy': '', 'focus_item_end_dy': '', 'img_url_01': '', 'img_url_typ_01': '', 'img_url_02': '', 'img_url_typ_02': '', 'img_url_03': '', 'img_url_typ_03': '', 'is_srch_yn': '', 'is_disp_yn': '', 'prd_create_dt': '', 'prd_update_dt': '', 'create_dt': '', 'update_dt': '', 'dlv_cupn_cd': '', 'prd_pnt_rt': 'num', 'prd_pnt_add_rt': 'num', 'ocb_zone_rt': 'num', 'low_prc_yn': '', 'prd_pnt_pre_yn': '', 'prd_pnt_pre_rt': 'num', 'cupn_ex_cd': '', 'prd_intfree_yn': '', 'skt_add_pre_yn': '', 'seller_ocb': 'num', 'seller_mileage': 'num', 'multi_qty_dsc_amt': 'num', 'multi_qty_dsc_rt': 'num', 'om_prd_yn': '', 'retail_price': 'num', 'makt_prc': 'num', 'gbl_dlv_yn': '', 'price_nm': '', 'ad_movie_yn': '', 'hope_shp_pnt': 'num', 'itm_cupn_iss_cn_yn': '', 'partner_cupn_ex_yn': '', 'lp_cupn_ex_yn': '', 'dlv_prc': 'num', 'rntl_info_list': '', 'std_prd_nm': '', 'dlv_typ_cd': '', 'seller_typ_cd': ''
+            }},
+            'BID_STATUS': { db: 'share_ad.focus_bid_trgt_total', name: '입찰상태 (일)', part: 'dt', type: 'fact', cols: {
+                'dt': 'PK', 'ai_yn': '', 'seller_no': '', 'ptnr_yn': '', 'adver_id': '', 'ad_seller_id': '', 'ad_camp_id': 'FK', 'ad_grp_id': 'FK', 'ad_trgt_id': 'FK', 'prd_no': 'FK', 'keywd_reg_way_val': '', 'camp_start_dy': '', 'camp_end_dy': '', 'camp_budget': '', 'grp_budget': '', 'imp_mdia_val': '', 'mkr_id': '', 'agn_id': 'FK', 'ms_ba': '', 'p_ba': '', 'grp_ms_ba': '', 'grp_p_ba': '', 'trgt_ms_ba': '', 'trgt_p_ba': '', 'adver_lnkg_yn': '', 'lnkg_impsb_yn': '', 'camp_period_yn': '', 'del_yn': '', 'actvtn_yn': '', 'del_str': '', 'actvtn_str': '', 'live_prd_yn': '', 'balance_yn': '', 'ai_objtv_roas': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': ''
+            }},
+            'AD_IMPRESSION': { db: 'ad_platform.vine_app_new_ad_logserver_live_parse_v5', name: '노출/클릭 (일)', part: 'part_hour', type: 'fact', cols: {
+                'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'impression': 'num', 'click': 'num', 'id': 'num', 'act_id': '', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'PK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'bid_amount': 'num', 'ppc': 'num', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'dnt_reason': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'FK', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'FK', 'ad_group_type': '', 'ad_target_id': 'FK', 'keyword_id': 'FK', 'placement_id': '', 'quality_score': 'num', 'qs_bucket': '', 'rank_score': 'num', 'ad_selection_type': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'banner_size': '', 'targeting_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'display_rank': 'num', 'partner_seller': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': ''
+            }},
+            'AD_FEE': { db: 'ad_platform.dsp_ad_fee_log_live_parse_v5', name: '과금 (일)', part: 'part_hour', type: 'fact', cols: {
+                'qs_bucket': '', 'part_hour': '', 'action_date': '', 'transaction_type': '', 'valid_cnt': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'FK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'placement_id': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'free_point_amount': 'num', 'free_point_tax_amount': 'num', 'non_free_point_amount': 'num', 'non_free_point_tax_amount': 'num', 'cash_amount': 'num', 'cash_tax_amount': 'num', 'pay_result': '', 'paid_date': '', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'dnt_reason': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'limit_over_amount': 'num', 'limit_over_tax_amount': 'num', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'prd_mgrp_no': 'num', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': ''
+            }},
+            'AD_CONVERSION': { db: 'ad_platform.vine_new_ad_log_cvr_live_v5', name: '전환 (일)', part: 'part_hour', type: 'fact', cols: {
+                'qs_bucket': '', 'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'conversion': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': 'FK', 'impression_id': '', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'num', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'affiliation_seller_key': '', 'affiliation_product_key': '', 'placement_id': '', 'pay_result': '', 'conversion_price': 'num', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'advertising_id_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'prd_mgrp_no': '', 'prd_grp_no': '', 'order_product_id': '', 'cvr_type': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'is_ai': '', 'contribution_conversion': 'num', 'contribution_conversion_price': 'num', 'virtual_order_no': '', 'is_bot': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': ''
+            }},
+            'PAYMENT': { db: 'share_ad.trans_ad_rel_base', name: '결제 (일)', part: 'dt', type: 'fact', cols: {
+                'dt': '', 'seller_no': '', 'prd_no': 'FK', 'trns_type_cd': '', 'ptnr_cd': '', 'pay_trns_amt': 'num', 'pay_seller_basic_dscnt_amt_drct': 'num', 'pay_seller_dscnt_amt_basic': 'num', 'pay_svc_use_amt': 'num', 'pay_11st_dscnt_amt': 'num', 'pay_net_sale_amt': 'num', 'cnfrm_trns_amt': 'num', 'cnfrm_seller_basic_dscnt_amt_drct': 'num', 'cnfrm_seller_dscnt_amt_basic': 'num', 'cnfrm_svc_use_amt': 'num', 'cnfrm_11st_dscnt_amt': 'num', 'cnfrm_net_sale_amt': 'num', 'pay_cnt': 'num', 'pay_qty': 'num'
+            }},
+            'SEARCH_LOG': { db: 'search.sch_11st_log_client_base', name: '검색로그 (일)', part: 'dt', type: 'fact', cols: {
+                'dt': '', 'base_time': '', 'poc_cl_cd': '', 'incm_grp': '', 'incm_grp_rank': 'num', 'incm_cl_cd': '', 'incm_cl_cd_grp': '', 'page_type': '', 'keyword': '', 'page_id': '', 'action_id': '', 'prev_keyword': '', 'prev_clk_cnt': 'num', 'keyword_grp_id': '', 'buy_grp_id': '', 'sex_cl_cd': '', 'age_cd': '', 'age_5_grp_cd': '', 'age_10_grp_cd': '', 'fix_yn': '', 'fix_keyword': '', 'local_time': '', 'recv_time': '', 'os_name': '', 'os_version': '', 'resolution': '', 'screen_width': '', 'screen_height': '', 'language_code': '', 'rake_lib': '', 'rake_lib_version': '', 'ip': '', 'token': '', 'log_version': '', 'device_id': '', 'device_model': '', 'manufacturer': '', 'carrier_name': '', 'network_type': '', 'app_release': '', 'app_build_number': '', 'browser_name': '', 'browser_version': '', 'referrer': '', 'url': '', 'document_title': '', 'pcid': '', 'page_version': '', 'service_country_code': '', 'service_language_code': '', 'service_currency_code': '', 'member_no': '', 'unique_key': '', 'tr_cd': '', 'ctgr_no': '', 'birthyear': '', 'pf_clf': '', 'bm_clf': '', 'partner_cd': '', 'advrt_no': '', 'advrt_detail': '', 'ad_nm': '', 'ad_tp_cd': '', 'ad_tp_nm': '', 'alcmpn_cd': '', 'alcmpn_nm': '', 'alcmpn_drct_vst_fg_cd': '', 'alcmpn_drct_vst_fg_nm': '', 'alcmpn_tp_cd': '', 'alcmpn_tp_nm': '', 'alcmpn_fg_cd': '', 'alcmpn_fg_nm': '', 'atrb_code': '', 'session_id': 'PK', 'xsite_session_id': '', 'xsite_session_sch_seq': '', 'eleven_device_id': '', 'auid': '', 'app_page_type': '', 'web_log_version': '', 'reco_side_info': '', 'partner_referrer': '', 'ab_tcs': '', 'search_call_id': '', 'search_result_cnt': '', 'search_view_type': '', 'search_sort_type': '', 'page_no': '', 'search_include_keyword': '', 'search_except_keyword': '', 'search_category_no': '', 'search_brand_code': '', 'search_seller_nos': '', 'search_max_price': 'num', 'search_min_price': 'num', 'search_benefit': '', 'search_attribute': '', 'search_prdtype': '', 'search_shipping': '', 'search_filter_yn': '', 'search_ad_show': '', 'search_no_result_yn': '', 'user_input_keyword': '', 'btn_name': '', 'content_no': '', 'content_name': '', 'link_url': '', 'display_order': 'num', 'position_l1': '', 'position_l2': 'num', 'position_l3': '', 'parent_type': '', 'parent_no': '', 'parent_name': '', 'research_include_keyword': '', 'research_except_keyword': '', 'content_code': '', 'seller_no': '', 'search_custom_yn': '', 'search_custom_key': '', 'current_product_no': '', 'trace_meta_category_no': '', 'content_type': '', 'product_no': 'FK', 'display_category_no': '', 'group_product_no': 'num', 'product_type': '', 'last_discount_price': 'num', 'seller_name': '', 'large_category_no': '', 'middle_category_no': '', 'small_category_no': '', 'detail_category_no': '', 'catalog_no': '', 'is_now_delivery': '', 'is_adult_product': '', 'is_sale': '', 'options': '', 'add_product_yn': '', 'add_product_no': '', 'main_product_no': '', 'option_quantity': '', 'stock_no': '', 'option_no': '', 'option_name': '', 'oper_dtm': '', 'qrsid': '', 'qrquery': '', 'search_prj': '', 'type_list': '', 'search_gift_event': '', 'search_gift_target': '', 'search_gift_age': '', 'search_gift_word': '', 'search_prd_type': '', 'gift_filter': '', 'ad_yn': '', 'ad_typ_gubn': '', 'ad_area_gubn': '', 'ad_trc_no': '', 'hashed_mbr_id': '', 'body': '', 'order_no': '', 'clk_yn': '', 'imprs_yn': '', 'cvs_yn': '', 'ord_yn': '', 'search_prod_yn': '', 'cm_ad_dv': '', 'reco_req_id': '', 'app_log_build_time': '', 'ad_resp_id': '', 'ad_impr_id': '', 'collection_object': '', 'add_collection_object': '', 'ab_test': '', 'poc_clf': '', 'label_type': '', 'add_label_type': '', 'snippet_object': '', 'add_snippet_object': '', 'search_main_tab': '', 'search_imp_filter': '', 'search_reviewer_rank': '', 'search_review_type': '', 'search_expert_type': '', 'incm_ht_vtc_yn': '', 'add_incm_ht_vtc_yn': '', 'add_fst_incm_cl_cd': '', 'vertical_yn': '', 'search_quickfilter_imprs': '', 'search_catalog_compare': '', 'movie_auto': '', 'ref_keyword': '', 'sch_ab_test': '', 'sch_ab_test_yn': '', 'sch_amz_prd_yn': '', 'current_content_type': '', 'current_content_no': '', 'content_opt_no': '', 'first_view_product_no': '', 'current_opt_product_no': '', 'first_view_opt_product_no': '', 'opt_product_no': '', 'search_collection': '', 'add_search_collection': ''
+            }}
+        };
+
+        // Graph for Auto-Join (Adjacency List based on erd.md)
+        // Format: { TableA: [{ target: TableB, on: [colA, colB] }] }
+        const ERD_GRAPH = {
+            'AGENCY': [
+                { target: 'AD_IMPRESSION', on: ['id', 'agency_id'] },
+                { target: 'BID_STATUS', on: ['id', 'agn_id'] },
+                { target: 'MARKETER', on: ['id', 'agn_id'] }
+            ],
+            'SELLER': [
+                { target: 'SELLER_MARKETER_MAP', on: ['id', 'ad_seller_id'] },
+                { target: 'CAMPAIGN', on: ['id', 'ad_seller_id'] }
+            ],
+            'MARKETER': [
+                { target: 'SELLER_MARKETER_MAP', on: ['id', 'mkr_id'] },
+                { target: 'AGENCY', on: ['agn_id', 'id'] }
+            ],
+            'SELLER_MARKETER_MAP': [
+                { target: 'SELLER', on: ['ad_seller_id', 'id'] },
+                { target: 'MARKETER', on: ['mkr_id', 'id'] }
+            ],
+            'CAMPAIGN': [
+                { target: 'AD_GROUP', on: ['id', 'camp_id'] },
+                { target: 'AD_IMPRESSION', on: ['id', 'campaign_id'] },
+                { target: 'BID_STATUS', on: ['id', 'ad_camp_id'] },
+                { target: 'SELLER', on: ['ad_seller_id', 'id'] }
+            ],
+            'AD_GROUP': [
+                { target: 'CAMPAIGN', on: ['camp_id', 'id'] },
+                { target: 'AD_TARGET', on: ['id', 'ad_grp_id'] },
+                { target: 'AD_IMPRESSION', on: ['id', 'ad_group_id'] },
+                { target: 'BID_STATUS', on: ['id', 'ad_grp_id'] }
+            ],
+            'AD_TARGET': [
+                { target: 'AD_GROUP', on: ['ad_grp_id', 'id'] },
+                { target: 'AD_KEYWORD', on: ['id', 'ad_trgt_id'] },
+                { target: 'PRODUCT', on: ['prod_no', 'prd_no'] },
+                { target: 'AD_IMPRESSION', on: ['id', 'ad_target_id'] },
+                { target: 'BID_STATUS', on: ['id', 'ad_trgt_id'] }
+            ],
+            'AD_KEYWORD': [
+                { target: 'AD_TARGET', on: ['ad_trgt_id', 'id'] },
+                { target: 'AD_IMPRESSION', on: ['id', 'keyword_id'] }
+            ],
+            'PRODUCT': [
+                { target: 'AD_TARGET', on: ['prd_no', 'prod_no'] },
+                { target: 'AD_IMPRESSION', on: ['prd_no', 'affiliation_product_key'] },
+                { target: 'BID_STATUS', on: ['prd_no', 'prd_no'] },
+                { target: 'PAYMENT', on: ['prd_no', 'prd_no'] },
+                { target: 'SEARCH_LOG', on: ['prd_no', 'product_no'] }
+            ],
+            'BID_STATUS': [
+                { target: 'CAMPAIGN', on: ['ad_camp_id', 'id'] },
+                { target: 'AD_GROUP', on: ['ad_grp_id', 'id'] },
+                { target: 'AD_TARGET', on: ['ad_trgt_id', 'id'] },
+                { target: 'PRODUCT', on: ['prd_no', 'prd_no'] },
+                { target: 'AGENCY', on: ['agn_id', 'id'] }
+            ],
+            'AD_IMPRESSION': [
+                { target: 'CAMPAIGN', on: ['campaign_id', 'id'] },
+                { target: 'AD_GROUP', on: ['ad_group_id', 'id'] },
+                { target: 'AD_TARGET', on: ['ad_target_id', 'id'] },
+                { target: 'AD_KEYWORD', on: ['keyword_id', 'id'] },
+                { target: 'AGENCY', on: ['agency_id', 'id'] },
+                { target: 'PRODUCT', on: ['affiliation_product_key', 'prd_no'] },
+                { target: 'AD_FEE', on: ['impression_id', 'impression_id'] } 
+            ],
+            'AD_FEE': [
+                { target: 'AD_IMPRESSION', on: ['impression_id', 'impression_id'] },
+                { target: 'AD_CONVERSION', on: ['act_id', 'act_id'] },
+                { target: 'CAMPAIGN', on: ['campaign_id', 'id'] }
+            ],
+            'AD_CONVERSION': [
+                { target: 'AD_FEE', on: ['act_id', 'act_id'] }
+            ],
+            'PAYMENT': [
+                { target: 'PRODUCT', on: ['prd_no', 'prd_no'] }
+            ],
+            'SEARCH_LOG': [
+                { target: 'PRODUCT', on: ['product_no', 'prd_no'] }
+            ]
+        };
+
+        // Application State
+        const state = {
+            baseTable: '',
+            dimensions: [], // { id, table, col }
+            metrics: [],    // { id, table, col, agg }
+            filters: [],    // { id, table, col, op, val }
+            dateRange: { start: '', end: '' },
+            aliases: {},    // Auto-generated table aliases { 'TABLE_NAME': 'a' }
+            joinPaths: []   // Calculated joins
+        };
+
+        let dragItemId = null;
+        let dragItemData = null; // { table, col, type }
+
+        const app = {
+            init: function() {
+                this.renderBaseTableOptions();
+                this.renderSchemaExplorer();
+                this.setupDragAndDrop();
+                this.generateSQL();
+            },
+
+            reset: function() {
+                state.baseTable = '';
+                state.dimensions = [];
+                state.metrics = [];
+                state.filters = [];
+                state.dateRange = { start: '', end: '' };
+                document.getElementById('dateStart').value = '';
+                document.getElementById('dateEnd').value = '';
+                
+                document.getElementById('baseTableSelect').value = '';
+                this.renderDimensions();
+                this.renderMetrics();
+                this.renderFilters();
+                this.generateSQL();
+            },
+
+            // Populate Base Table Dropdown
+            renderBaseTableOptions: function() {
+                const select = document.getElementById('baseTableSelect');
+                Object.keys(DB_SCHEMA).forEach(key => {
+                    const info = DB_SCHEMA[key];
+                    const icon = info.type === 'fact' ? 'fa-bolt text-yellow-500' : 'fa-cube text-blue-500';
+                    select.innerHTML += `<option value="${key}">${key} (${info.name})</option>`;
+                });
+            },
+
+            // Render Left Sidebar
+            renderSchemaExplorer: function() {
+                const container = document.getElementById('schemaExplorer');
+                container.innerHTML = '';
+                
+                Object.keys(DB_SCHEMA).forEach(tableName => {
+                    const table = DB_SCHEMA[tableName];
+                    const isFact = table.type === 'fact';
+                    
+                    let html = `
+                        <div class="mb-2 bg-white rounded-md border border-gray-200 overflow-hidden shadow-sm">
+                            <div class="px-3 py-2 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition select-none" onclick="app.toggleCollapse('${tableName}')">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <i class="fas ${isFact ? 'fa-bolt text-yellow-500' : 'fa-cube text-blue-500'} text-xs"></i>
+                                    <div class="truncate">
+                                        <div class="text-xs font-bold text-gray-800">${tableName}</div>
+                                        <div class="text-[10px] text-gray-400">${table.name}</div>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-down text-[10px] text-gray-400 transform transition-transform duration-200" id="icon-${tableName}"></i>
+                            </div>
+                            <div class="hidden flex-col bg-white" id="cols-${tableName}">
+                    `;
+                    
+                    Object.keys(table.cols).forEach(colName => {
+                        const colType = table.cols[colName];
+                        let icon = 'fa-tag text-gray-400';
+                        let badge = '';
+                        let isNum = colType === 'num';
+                        
+                        if(colType === 'PK') { icon = 'fa-key text-yellow-500'; badge='PK'; }
+                        if(colType === 'FK') { icon = 'fa-link text-blue-400'; badge='FK'; }
+                        if(colType === 'num') { icon = 'fa-hashtag text-green-500'; badge='NUM'; }
+
+                        html += `
+                                <div class="px-3 py-1.5 pl-8 text-[11px] border-t border-gray-50 flex justify-between items-center group cursor-grab hover:bg-red-50 transition"
+                                     draggable="true" 
+                                     ondragstart="app.handleDragStart(event, '${tableName}', '${colName}', '${isNum ? 'metric' : 'dim'}')">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas ${icon}"></i>
+                                        <span class="font-medium text-gray-700 group-hover:text-red-700">${colName}</span>
+                                    </div>
+                                    ${badge ? `<span class="text-[8px] bg-gray-100 text-gray-500 px-1 rounded">${badge}</span>` : ''}
+                                </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                    container.innerHTML += html;
+                });
+            },
+
+            toggleCollapse: function(id) {
+                const el = document.getElementById(`cols-${id}`);
+                const icon = document.getElementById(`icon-${id}`);
+                el.classList.toggle('hidden');
+                el.classList.toggle('flex');
+                icon.classList.toggle('-rotate-90');
+            },
+
+            handleDragStart: function(e, table, col, type) {
+                dragItemData = { table, col, type };
+                e.dataTransfer.effectAllowed = 'copy';
+                // Visual feedback
+                e.target.style.opacity = '0.5';
+            },
+
+            setupDragAndDrop: function() {
+                const setupZone = (id, acceptType, addCallback) => {
+                    const zone = document.getElementById(id);
+                    zone.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        if (!state.baseTable) return; // Prevent drop if no base table
+                        zone.classList.add('drag-over');
+                    });
+                    zone.addEventListener('dragleave', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('drag-over');
+                    });
+                    zone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('drag-over');
+                        if (!state.baseTable) {
+                            alert('먼저 기준 데이터(Base Table)를 선택해주세요.');
+                            return;
+                        }
+                        if (dragItemData) {
+                            addCallback(dragItemData);
+                            dragItemData = null;
+                        }
+                    });
+                };
+
+                setupZone('dimensionsList', 'dim', (data) => {
+                    state.dimensions.push({ id: Date.now(), ...data });
+                    app.renderDimensions();
+                    app.generateSQL();
+                });
+
+                setupZone('metricsList', 'metric', (data) => {
+                    // Default aggregation
+                    let agg = 'SUM';
+                    if(!['num'].includes(DB_SCHEMA[data.table].cols[data.col])) agg = 'COUNT';
+                    
+                    state.metrics.push({ id: Date.now(), agg: agg, ...data });
+                    app.renderMetrics();
+                    app.generateSQL();
+                });
+            },
+
+            setBaseTable: function(val) {
+                state.baseTable = val;
+                this.generateSQL();
+            },
+
+            renderDimensions: function() {
+                const container = document.getElementById('dimensionsList');
+                if (state.dimensions.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">좌측에서 컬럼을 드래그하세요</p></div>`;
+                    return;
+                }
+                
+                container.innerHTML = state.dimensions.map(d => `
+                    <div class="bg-white border border-blue-200 rounded p-2 text-xs flex justify-between items-center shadow-sm fade-in">
+                        <div class="flex items-center gap-2 truncate">
+                            <i class="fas fa-grip-vertical text-gray-300"></i>
+                            <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
+                            <span class="font-bold text-gray-800">${d.col}</span>
+                        </div>
+                        <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-2" onclick="app.removeDim(${d.id})"></i>
+                    </div>
+                `).join('');
+            },
+
+            renderMetrics: function() {
+                const container = document.getElementById('metricsList');
+                if (state.metrics.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">좌측에서 컬럼을 드래그하세요</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = state.metrics.map(m => `
+                    <div class="bg-white border border-green-200 rounded p-2 text-xs flex justify-between items-center shadow-sm fade-in">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="bg-green-50 text-green-700 font-bold border-none text-[10px] outline-none cursor-pointer p-0.5 rounded">
+                                <option value="SUM" ${m.agg==='SUM'?'selected':''}>SUM</option>
+                                <option value="COUNT" ${m.agg==='COUNT'?'selected':''}>COUNT</option>
+                                <option value="AVG" ${m.agg==='AVG'?'selected':''}>AVG</option>
+                                <option value="MAX" ${m.agg==='MAX'?'selected':''}>MAX</option>
+                            </select>
+                            <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded truncate">${m.table}</span>
+                            <span class="font-bold text-gray-800 truncate">${m.col}</span>
+                        </div>
+                        <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-2 shrink-0" onclick="app.removeMetric(${m.id})"></i>
+                    </div>
+                `).join('');
+            },
+
+            renderFilters: function() {
+                const container = document.getElementById('filterList');
+                
+                // Get active tables for dropdown
+                const activeTables = this.getActiveTables();
+                
+                container.innerHTML = state.filters.map((f, i) => {
+                    let tableOpts = Array.from(activeTables).map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
+                    if(!tableOpts) tableOpts = '<option value="">테이블</option>';
+
+                    return `
+                    <div class="flex items-center gap-2 text-xs bg-gray-50 p-2 border border-gray-200 rounded shadow-sm fade-in">
+                        <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 bg-white w-32 truncate outline-none">
+                            ${tableOpts}
+                        </select>
+                        <input type="text" placeholder="컬럼명 (예: actvtn_yn)" value="${f.col}" onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-28 outline-none">
+                        <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 font-bold text-purple-700 bg-purple-50 outline-none">
+                            <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
+                            <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
+                            <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
+                            <option value="<" ${f.op === '<' ? 'selected' : ''}>&lt;</option>
+                            <option value="IN" ${f.op === 'IN' ? 'selected' : ''}>IN</option>
+                            <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
+                        </select>
+                        <input type="text" placeholder="값 (예: 'Y')" value="${f.val}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 outline-none font-mono">
+                        <button onclick="app.removeFilter(${i})" class="text-gray-400 hover:text-red-500 px-2"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `}).join('');
+            },
+
+            removeDim: function(id) { state.dimensions = state.dimensions.filter(d => d.id !== id); this.renderDimensions(); this.generateSQL(); },
+            removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
+            updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
+            
+            addFilter: function() {
+                const active = Array.from(this.getActiveTables());
+                const defaultT = active.length > 0 ? active[0] : '';
+                state.filters.push({ table: defaultT, col: '', op: '=', val: "''" });
+                this.renderFilters();
+            },
+            updateFilter: function(i, field, val) { state.filters[i][field] = val; this.generateSQL(); },
+            removeFilter: function(i) { state.filters.splice(i, 1); this.renderFilters(); this.generateSQL(); },
+            updateDate: function() { 
+                state.dateRange.start = document.getElementById('dateStart').value; 
+                state.dateRange.end = document.getElementById('dateEnd').value; 
+                this.generateSQL(); 
+            },
+
+            getActiveTables: function() {
+                const tables = new Set();
+                if (state.baseTable) tables.add(state.baseTable);
+                state.dimensions.forEach(d => tables.add(d.table));
+                state.metrics.forEach(m => tables.add(m.table));
+                state.filters.forEach(f => { if(f.table) tables.add(f.table); });
+                return tables;
+            },
+
+            calculateJoins: function(activeTables) {
+                if (!state.baseTable || activeTables.size <= 1) return [];
+
+                const targets = Array.from(activeTables).filter(t => t !== state.baseTable);
+                const joins = [];
+                const joinedTables = new Set([state.baseTable]);
+                const pathsLog = [];
+
+                // BFS to find shortest path to each target
+                for (const target of targets) {
+                    if (joinedTables.has(target)) continue;
+
+                    const queue = [[state.baseTable]];
+                    const visited = new Set([state.baseTable]);
+                    let pathFound = null;
+
+                    while (queue.length > 0) {
+                        const path = queue.shift();
+                        const current = path[path.length - 1];
+
+                        if (current === target) {
+                            pathFound = path;
+                            break;
+                        }
+
+                        const neighbors = ERD_GRAPH[current] || [];
+                        for (const neighbor of neighbors) {
+                            if (!visited.has(neighbor.target)) {
+                                visited.add(neighbor.target);
+                                queue.push([...path, neighbor.target]);
+                            }
+                        }
+                    }
+
+                    if (pathFound) {
+                        // Construct joins for this path
+                        for (let i = 0; i < pathFound.length - 1; i++) {
+                            const from = pathFound[i];
+                            const to = pathFound[i+1];
+                            
+                            if (!joinedTables.has(to)) {
+                                // Find the specific rule
+                                const rule = ERD_GRAPH[from].find(r => r.target === to);
+                                joins.push({
+                                    from: from,
+                                    to: to,
+                                    on: rule.on
+                                });
+                                joinedTables.add(to);
+                                pathsLog.push(`${from} <i class="fas fa-arrow-right mx-1 text-gray-600"></i> ${to} <span class="text-[9px] text-gray-600 ml-1">ON ${rule.on[0]}=${rule.on[1]}</span>`);
+                            }
+                        }
+                    } else {
+                        pathsLog.push(`<span class="text-red-500">Warning: No ERD path found from ${state.baseTable} to ${target}</span>`);
+                    }
+                }
+
+                // Update UI Status
+                const statusDiv = document.getElementById('joinStatus');
+                if (pathsLog.length > 0) {
+                    statusDiv.innerHTML = pathsLog.map(p => `<div><i class="fas fa-check text-green-500 mr-1"></i> ${p}</div>`).join('');
+                } else {
+                    statusDiv.innerHTML = '추가된 조인 없음';
+                }
+
+                return joins;
+            },
+
+            generateSQL: function() {
+                const out = document.getElementById('sqlOutput');
+                
+                if (!state.baseTable) {
+                    out.innerHTML = `<span class="text-gray-500">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="text-blue-400 font-bold">SELECT</span> \n    * \n<span class="text-blue-400 font-bold">FROM</span> dual;`;
+                    document.getElementById('joinStatus').innerHTML = '대기 중... (테이블을 추가하세요)';
+                    return;
+                }
+
+                const activeTables = this.getActiveTables();
+                
+                // Assign Aliases (a, b, c...)
+                state.aliases = {};
+                let aliasIdx = 0;
+                const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+                activeTables.forEach(t => { state.aliases[t] = alphabet[aliasIdx++]; });
+
+                const joins = this.calculateJoins(activeTables);
+
+                let sql = `<span class="text-blue-400 font-bold">SELECT</span>\n`;
+                
+                // 1. SELECT clause
+                const selects = [];
+                state.dimensions.forEach(d => {
+                    selects.push(`    ${state.aliases[d.table]}.${d.col}`);
+                });
+                state.metrics.forEach(m => {
+                    selects.push(`    <span class="text-green-400">${m.agg}</span>(${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
+                });
+
+                if (selects.length === 0) {
+                    sql += `    ${state.aliases[state.baseTable]}.*\n`;
+                } else {
+                    sql += selects.join(',\n') + '\n';
+                }
+
+                // 2. FROM clause
+                const baseInfo = DB_SCHEMA[state.baseTable];
+                sql += `<span class="text-blue-400 font-bold">FROM</span> ${baseInfo.db} ${state.aliases[state.baseTable]}\n`;
+
+                // 3. JOIN clauses
+                joins.forEach(j => {
+                    const toInfo = DB_SCHEMA[j.to];
+                    sql += `<span class="text-purple-400 font-bold">LEFT JOIN</span> ${toInfo.db} ${state.aliases[j.to]}\n`;
+                    sql += `    <span class="text-purple-400 font-bold">ON</span> ${state.aliases[j.from]}.${j.on[0]} = ${state.aliases[j.to]}.${j.on[1]}\n`;
+                });
+
+                // 4. WHERE clause
+                const wheres = [];
+                
+                // Format Date based on partition type (dt/part_date vs part_hour)
+                let dStart = state.dateRange.start ? state.dateRange.start.replace(/-/g, '') : null;
+                let dEnd = state.dateRange.end ? state.dateRange.end.replace(/-/g, '') : null;
+                
+                if (dStart || dEnd) {
+                    const pCol = baseInfo.part;
+                    const alias = state.aliases[state.baseTable];
+                    
+                    // If table uses part_hour, append '00' to start and '23' to end for daily range
+                    if(pCol === 'part_hour') {
+                        if(dStart) dStart += '00';
+                        if(dEnd) dEnd += '23';
+                    }
+
+                    if (dStart && dEnd && state.dateRange.start === state.dateRange.end) {
+                        if(pCol === 'part_hour') {
+                             wheres.push(`${alias}.${pCol} <span class="text-yellow-300">BETWEEN</span> '${dStart}' <span class="text-yellow-300">AND</span> '${dEnd}'`);
+                        } else {
+                             wheres.push(`${alias}.${pCol} = '${dStart}'`);
+                        }
+                    } else if (dStart && dEnd) {
+                        wheres.push(`${alias}.${pCol} <span class="text-yellow-300">BETWEEN</span> '${dStart}' <span class="text-yellow-300">AND</span> '${dEnd}'`);
+                    } else if (dStart) {
+                        wheres.push(`${alias}.${pCol} >= '${dStart}'`);
+                    } else if (dEnd) {
+                        wheres.push(`${alias}.${pCol} <= '${dEnd}'`);
+                    }
+                }
+
+                // Custom Filters
+                state.filters.forEach(f => {
+                    if (f.col && f.val) {
+                        const alias = state.aliases[f.table] || f.table;
+                        // basic string parsing to colorize values
+                        const valFormat = f.val.includes("'") ? `<span class="text-yellow-400">${f.val}</span>` : f.val;
+                        wheres.push(`${alias}.${f.col} ${f.op} ${valFormat}`);
+                    }
+                });
+
+                if (wheres.length > 0) {
+                    sql += `<span class="text-blue-400 font-bold">WHERE</span> ${wheres[0]}\n`;
+                    for (let i = 1; i < wheres.length; i++) {
+                        sql += `  <span class="text-blue-400 font-bold">AND</span> ${wheres[i]}\n`;
+                    }
+                }
+
+                // 5. GROUP BY clause
+                if (state.metrics.length > 0 && state.dimensions.length > 0) {
+                    const groups = state.dimensions.map(d => `${state.aliases[d.table]}.${d.col}`);
+                    sql += `<span class="text-blue-400 font-bold">GROUP BY</span>\n    ${groups.join(',\n    ')}\n`;
+                }
+
+                sql += ';';
+                out.innerHTML = sql;
+            },
+
+            copySQL: function() {
+                const el = document.getElementById('sqlOutput');
+                // Create a temporary textarea to get raw text (without HTML tags)
+                const temp = document.createElement('textarea');
+                temp.value = el.innerText;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                
+                const toast = document.getElementById('toast');
+                toast.classList.remove('translate-x-full', 'opacity-0');
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full', 'opacity-0');
+                }, 2000);
+            }
+        };
+
+        // Search logic for sidebar
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            const groups = document.querySelectorAll('#schemaExplorer > div');
+            
+            groups.forEach(group => {
+                const title = group.querySelector('.font-bold').innerText.toLowerCase();
+                const cols = Array.from(group.querySelectorAll('div[draggable="true"]')).map(el => el.innerText.toLowerCase());
+                
+                const matchTable = title.includes(term);
+                const matchCol = cols.some(col => col.includes(term));
+                
+                if (matchTable || matchCol) {
+                    group.style.display = 'block';
+                    // Auto-expand if column matches
+                    if(matchCol && term !== '') {
+                        const id = title.toUpperCase(); // simplistic id matching
+                        const content = group.querySelector(`#cols-${id}`);
+                        if(content && content.classList.contains('hidden')){
+                            app.toggleCollapse(id);
+                        }
+                    }
+                } else {
+                    group.style.display = 'none';
+                }
+            });
+        });
+
+        // Start App
+        window.onload = function() {
+            app.init();
+        };
+    </script>
+</body>
+</html>
