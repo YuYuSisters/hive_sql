@@ -22,7 +22,7 @@
         .fade-in { animation: fadeIn 0.2s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
-        .drag-over { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+        .drag-over { border-color: #ef4444 !important; background-color: #fef2f2 !important; border-width: 2px !important; border-style: dashed !important; }
 
         /* VS Code Dark Theme Styles for SQL Guide */
         .vscode-dark { background-color: #1e1e1e; color: #d4d4d4; }
@@ -56,171 +56,169 @@
         </div>
     </header>
 
-    <main class="flex-1 flex overflow-hidden">
+    <main class="flex-1 flex flex-col overflow-hidden relative">
         
-        <aside class="w-72 border-r border-gray-200 bg-white flex flex-col h-full shrink-0 z-10 shadow-sm relative">
-            <div class="p-4 border-b border-gray-100">
-                <div class="relative">
-                    <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                    <input type="text" id="searchInput" onkeyup="app.filterSchema()" placeholder="테이블/컬럼 검색..." 
-                           class="w-full text-sm border border-gray-300 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all">
-                </div>
-            </div>
-            
-            <div class="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center shadow-inner">
-                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Data Dictionary</span>
-                <i class="fas fa-sitemap text-gray-400"></i>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-2 space-y-1" id="schemaExplorer">
-                <!-- Schema items dynamically injected here -->
-            </div>
-        </aside>
-
-        <div class="flex-1 flex flex-col min-w-0 bg-gray-50/50 overflow-y-auto border-r border-gray-200 relative">
-            <div class="max-w-4xl w-full mx-auto p-6 space-y-6">
-                
-                <!-- Base Table Selection -->
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
-                    <div class="absolute -left-2 -top-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 1</div>
-                    <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                        <i class="fas fa-layer-group text-red-500"></i> 기준 데이터 (Base Table)
-                    </h2>
-                    <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-shadow bg-gray-50 hover:bg-white cursor-pointer text-gray-700">
-                        <option value="">데이터 마트를 선택하세요 (필수)</option>
-                        <!-- Options injected via JS -->
-                    </select>
-                    <p class="text-[11px] text-gray-500 mt-2 ml-1"><i class="fas fa-info-circle"></i> 분석의 중심이 되는 메인 로그나 팩트 테이블을 선택하세요.</p>
-                </div>
-
-                <!-- Dimensions & Metrics -->
-                <div class="grid grid-cols-2 gap-4 relative">
-                    <div class="absolute -left-2 -top-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">STEP 2</div>
-                    
-                    <!-- Dimensions (Group By) -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
-                        <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
-                            <i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions)
-                        </h2>
-                        <p class="text-[10px] text-gray-400 mb-3">데이터를 그룹화할 기준 컬럼을 드래그하세요</p>
-                        
-                        <div id="dimensionsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
-                            <div class="empty-state m-auto text-center text-gray-400 pointer-events-none">
-                                <i class="fas fa-hand-rock mb-2 text-lg"></i>
-                                <p class="text-xs">Drag & Drop</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Metrics (Aggregations) -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
-                        <div class="flex justify-between items-center mb-1">
-                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
-                            </h2>
-                            <button onclick="app.addCalcMetric()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded border border-green-200 hover:bg-green-100 font-bold transition">
-                                <i class="fas fa-plus mr-1"></i>수식 추가
-                            </button>
-                        </div>
-                        <p class="text-[10px] text-gray-400 mb-3">수치계산할 컬럼을 드래그하세요</p>
-                        
-                        <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
-                            <div class="empty-state m-auto text-center text-gray-400 pointer-events-none">
-                                <i class="fas fa-hand-rock mb-2 text-lg"></i>
-                                <p class="text-xs">Drag & Drop</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Joins Configuration -->
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
-                    <div class="absolute -left-2 -top-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 3</div>
-                    <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-link text-yellow-500"></i> 조인 조건 설정 (Joins)
-                            </h2>
-                            <p class="text-[10px] text-gray-400 mt-0.5">컬럼 드래그 시 ERD 기반으로 자동 추가되며, 수동 조작도 가능합니다.</p>
-                        </div>
-                        <button onclick="app.addJoin()" class="text-xs bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded border border-yellow-200 hover:bg-yellow-100 font-medium transition">
-                            <i class="fas fa-plus mr-1"></i> 테이블 조인 추가
-                        </button>
-                    </div>
-
-                    <div id="joinConfigList" class="space-y-3 flex flex-col">
-                        <!-- Joins UI injected here -->
-                        <div class="text-center text-[11px] text-gray-400 py-4 bg-gray-50 border border-dashed border-gray-200 rounded-lg">
-                            기준 테이블 외에 다른 테이블 컬럼을 사용하면 여기에 조인이 표시됩니다.
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Filters -->
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
-                    <div class="absolute -left-2 -top-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 4</div>
-                    <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-filter text-purple-500"></i> 필터 조건 (Filters)
-                            </h2>
-                        </div>
-                        <button onclick="app.addFilter()" class="text-xs bg-purple-50 text-purple-600 px-3 py-1.5 rounded border border-purple-200 hover:bg-purple-100 font-medium transition">
-                            <i class="fas fa-plus mr-1"></i> 조건 추가
-                        </button>
-                    </div>
-
-                    <!-- Mandatory Partition Date -->
-                    <div class="bg-red-50/50 border border-red-100 p-4 rounded-lg mb-4">
-                        <div id="partitionLabel" class="text-xs font-bold text-red-800 mb-2 flex items-center gap-1">
-                            <i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>
-                        </div>
-                        <div class="flex gap-3 items-center">
-                            <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
-                            <span class="text-gray-400 font-medium">~</span>
-                            <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
-                        </div>
-                        <p id="partitionDesc" class="text-[10px] text-gray-500 mt-2">기준 테이블을 선택하면 해당 테이블의 파티션 정책(일/시간)에 맞게 백그라운드에서 포맷팅됩니다.</p>
-                    </div>
-
-                    <!-- Dynamic Filter List -->
-                    <div id="filterList" class="space-y-2">
-                        <!-- Filters injected here -->
-                    </div>
-                </div>
-
-            </div>
-            
-            <!-- Bottom spacing -->
-            <div class="h-10"></div>
+        <!-- CTE Tabs Container -->
+        <div class="w-full bg-[#f1f5f9] px-4 pt-2 flex gap-1 border-b border-gray-200 shrink-0 shadow-[inset_0_-1px_0_0_#e2e8f0]" id="tabContainer" style="z-index: 10;">
+            <!-- Tabs injected dynamically -->
         </div>
 
-        <div class="w-1/3 flex flex-col bg-[#1e1e1e] shrink-0 shadow-2xl z-20 relative">
-            <div class="bg-[#252526] px-5 py-3 border-b border-[#333] flex justify-between items-center">
-                <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2 tracking-wide">
-                    <i class="fas fa-code text-blue-400"></i> SQL Preview
-                </h3>
-                <span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30">Auto-Generated</span>
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Sidebar (Data Dictionary) -->
+            <aside class="w-72 border-r border-gray-200 bg-white flex flex-col h-full shrink-0 z-10 shadow-sm relative">
+                <div class="p-4 border-b border-gray-100">
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                        <input type="text" id="searchInput" onkeyup="app.filterSchema()" placeholder="테이블/컬럼 검색..." 
+                               class="w-full text-sm border border-gray-300 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all">
+                    </div>
+                </div>
+                
+                <div class="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center shadow-inner">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Data Dictionary</span>
+                    <i class="fas fa-sitemap text-gray-400"></i>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-2 space-y-1" id="schemaExplorer">
+                    <!-- Schema items dynamically injected here -->
+                </div>
+            </aside>
+
+            <div class="flex-1 flex flex-col min-w-0 bg-gray-50/50 overflow-y-auto border-r border-gray-200 relative">
+                <div class="max-w-4xl w-full mx-auto p-6 space-y-6">
+                    
+                    <!-- Base Table Selection -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
+                        <div class="absolute -left-2 -top-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 1</div>
+                        <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-layer-group text-red-500"></i> 기준 데이터 (Base Table)
+                        </h2>
+                        <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-shadow bg-gray-50 hover:bg-white cursor-pointer text-gray-700">
+                            <!-- Options injected via JS -->
+                        </select>
+                        <p class="text-[11px] text-gray-500 mt-2 ml-1"><i class="fas fa-info-circle"></i> 분석의 중심이 되는 메인 테이블(또는 CTE)을 선택하세요.</p>
+                    </div>
+
+                    <!-- Dimensions & Metrics -->
+                    <div class="grid grid-cols-2 gap-4 relative">
+                        <div class="absolute -left-2 -top-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">STEP 2</div>
+                        
+                        <!-- Dimensions (Group By) -->
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
+                            <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
+                                <i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions)
+                            </h2>
+                            <p class="text-[10px] text-gray-400 mb-3">데이터를 그룹화할 기준 컬럼을 드래그하세요</p>
+                            
+                            <div id="dimensionsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
+                                <!-- Dimensions injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Metrics (Aggregations) -->
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
+                            <div class="flex justify-between items-center mb-1">
+                                <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
+                                </h2>
+                                <button onclick="app.addCalcMetric()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded border border-green-200 hover:bg-green-100 font-bold transition">
+                                    <i class="fas fa-plus mr-1"></i>수식 추가
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mb-3">수치계산할 컬럼을 드래그하세요</p>
+                            
+                            <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
+                                <!-- Metrics injected here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Joins Configuration -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
+                        <div class="absolute -left-2 -top-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 3</div>
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fas fa-link text-yellow-500"></i> 조인 조건 설정 (Joins)
+                                </h2>
+                                <p class="text-[10px] text-gray-400 mt-0.5">컬럼 드래그 시 ERD 기반으로 자동 추가되며, 수동 조작도 가능합니다.</p>
+                            </div>
+                            <button onclick="app.addJoin()" class="text-xs bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded border border-yellow-200 hover:bg-yellow-100 font-medium transition shadow-sm">
+                                <i class="fas fa-plus mr-1"></i> 테이블 조인 추가
+                            </button>
+                        </div>
+
+                        <div id="joinConfigList" class="space-y-3 flex flex-col">
+                            <!-- Joins UI injected here -->
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
+                        <div class="absolute -left-2 -top-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 4</div>
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fas fa-filter text-purple-500"></i> 필터 조건 (Filters)
+                                </h2>
+                            </div>
+                            <button onclick="app.addFilter()" class="text-xs bg-purple-50 text-purple-600 px-3 py-1.5 rounded border border-purple-200 hover:bg-purple-100 font-medium transition shadow-sm">
+                                <i class="fas fa-plus mr-1"></i> 조건 추가
+                            </button>
+                        </div>
+
+                        <!-- Mandatory Partition Date -->
+                        <div class="bg-red-50/50 border border-red-100 p-4 rounded-lg mb-4">
+                            <div id="partitionLabel" class="text-xs font-bold text-red-800 mb-2 flex items-center gap-1">
+                                <i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>
+                            </div>
+                            <div class="flex gap-3 items-center">
+                                <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+                                <span class="text-gray-400 font-medium">~</span>
+                                <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+                            </div>
+                            <p id="partitionDesc" class="text-[10px] text-gray-500 mt-2">기준 테이블을 선택하면 해당 테이블의 파티션 정책에 맞게 포맷팅됩니다.</p>
+                        </div>
+
+                        <!-- Dynamic Filter List -->
+                        <div id="filterList" class="space-y-2">
+                            <!-- Filters injected here -->
+                        </div>
+                    </div>
+
+                </div>
+                <div class="h-10"></div>
             </div>
-            
-            <div class="flex-1 p-5 overflow-auto relative text-[13px] tracking-wide leading-relaxed vscode-dark">
-                <pre id="sqlOutput" class="whitespace-pre-wrap break-all sql-font">
+
+            <div class="w-1/3 flex flex-col bg-[#1e1e1e] shrink-0 shadow-2xl z-20 relative">
+                <div class="bg-[#252526] px-5 py-3 border-b border-[#333] flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2 tracking-wide">
+                        <i class="fas fa-code text-blue-400"></i> SQL Preview
+                    </h3>
+                    <span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30">Auto-Generated</span>
+                </div>
+                
+                <div class="flex-1 p-5 overflow-auto relative text-[13px] tracking-wide leading-relaxed vscode-dark">
+                    <pre id="sqlOutput" class="whitespace-pre-wrap break-all sql-font">
 <span class="token-comment">-- 기준 테이블을 먼저 선택해 주세요.</span>
 <span class="token-comment">-- (STEP 1부터 순서대로 진행)</span>
 
 <span class="token-keyword">SELECT</span> 
     * 
 <span class="token-keyword">FROM</span> dual;
-                </pre>
+                    </pre>
+                </div>
             </div>
         </div>
     </main>
 
+    <!-- Custom Toast -->
     <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-bold flex items-center gap-3 transition-all duration-300 opacity-0 pointer-events-none z-50">
         <i id="toastIcon" class="fas fa-info-circle text-blue-400 text-lg"></i>
         <span id="toastMsg">알림 메시지</span>
     </div>
 
+    <!-- SQL Guide Modal -->
     <div id="sqlModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center fade-in p-4">
         <div class="bg-[#1e1e1e] rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden border border-[#333]">
             <div class="px-6 py-4 border-b border-[#333] flex justify-between items-center bg-[#252526] shrink-0">
@@ -237,9 +235,8 @@
     </div>
 
     <script>
-        // Data Dictionary
         const DB_SCHEMA = {
-            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인', part: 'dt', type: 'dim', cols: { 'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': '' } },
+            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인', part: 'part_date', type: 'dim', cols: { 'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': '' } },
             'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'ad_grp_nm': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'bid_type_val': '', 'bid_amt': 'num', 'mon_imp_time_val': 'num', 'tue_imp_time_val': 'num', 'wed_imp_time_val': 'num', 'thu_imp_time_val': 'num', 'fri_imp_time_val': 'num', 'sat_imp_time_val': 'num', 'sun_imp_time_val': 'num', 'actvtn_yn': '', 'camp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ad_imp_mdia_val': '', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'ai_yn': '' } },
             'AD_TARGET': { db: 'ad_platform.dbm_dsp_ad_trgt_live', name: '광고타겟', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'prod_no': 'FK', 'bid_type_val': '', 'bid_amt': 'num', 'keywd_reg_way_val': '', 'actvtn_yn': '', 'ad_grp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'lnkg_impsb_yn': '', 'ai_yn': '' } },
             'AD_KEYWORD': { db: 'ad_platform.dbm_dsp_ad_keywd_live', name: '키워드입찰', part: 'part_hour', type: 'dim', cols: { 'part_hour': '', 'id': 'PK', 'keywd_nm': '', 'bid_type_val': '', 'bid_amt': 'num', 'actvtn_yn': '', 'ad_trgt_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'rnk_auto_bid_actvtn_yn': '', 'hope_rnk': 'num', 'max_bid_amt': 'num', 'adj_amt': 'num', 'rnk_auto_bid_dt': '', 'expire_dt': '' } },
@@ -641,132 +638,145 @@ LEFT JOIN mkr_map on mkr_map.part_date = sell.part_date and sell.id = mkr_map.ad
 LEFT JOIN ad_platform.dbm_dsp_agn agn on mkr_map.part_date = agn.part_date and mkr_map.agn_id = agn.id
 where sell.part_date = 20260720 AND DEL_DT is null;`;
 
-        // State Management
-        const state = {
-            baseTable: '',
-            dimensions: [], 
-            metrics: [],    
-            filters: [],    
-            dateRange: { start: '', end: '' },
-            aliases: {},    
-            joins: []       
-        };
-
-        let dragItemData = null;
-
-        // Custom Toast Utility
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            const icon = document.getElementById('toastIcon');
-            const txt = document.getElementById('toastMsg');
-            
-            txt.innerText = msg;
-            if (isError) {
-                toast.classList.replace('bg-gray-800', 'bg-red-600');
-                icon.className = 'fas fa-exclamation-triangle text-white text-lg';
-            } else {
-                toast.classList.replace('bg-red-600', 'bg-gray-800');
-                icon.className = 'fas fa-check-circle text-green-400 text-lg';
-            }
-            
-            toast.classList.remove('opacity-0', 'translate-y-2');
-            toast.classList.add('opacity-100', 'translate-y-0');
-            
-            setTimeout(() => {
-                toast.classList.remove('opacity-100', 'translate-y-0');
-                toast.classList.add('opacity-0', 'translate-y-2');
-            }, 3000);
-        }
-
         const app = {
+            tabs: ['main'],
+            activeTab: 'main',
+            queries: {
+                'main': { id: 'main', name: '메인 쿼리', baseTable: '', dimensions: [], metrics: [], filters: [], joins: [], dateRange: { start: '', end: '' } }
+            },
+            cteSchemas: {},
+
+            q: function() { return this.queries[this.activeTab]; },
+
             init: function() {
-                this.renderBaseTableOptions();
-                this.renderSchemaExplorer();
+                this.updateAllUI();
                 this.setupDragAndDrop();
                 this.parseAndRenderSqlGuide();
-                this.generateSQL();
             },
 
-            openSqlExamples: function() { document.getElementById('sqlModal').classList.remove('hidden'); },
-            closeSqlExamples: function() { document.getElementById('sqlModal').classList.add('hidden'); },
-
-            syntaxHighlightVSCode: function(sql) {
-                return sql
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/(--.*$)/gm, '<span class="token-comment">$1</span>') // 주석
-                    .replace(/('[^']*')/g, '<span class="token-string">$1</span>') // 문자열
-                    .replace(/\b(\d+)\b/g, '<span class="token-number">$1</span>') // 숫자
-                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|UNION|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|WITH|LIMIT)\b/gi, '<span class="token-keyword">$1</span>') // 키워드
-                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER|CAST)\b/gi, '<span class="token-function">$1</span>') // 함수
-                    .replace(/(=|>|<|!=|>=|<=)/g, '<span class="token-operator">$1</span>'); // 연산자
+            // --- Common Utilities ---
+            showToast: function(msg, isError = false) {
+                const toast = document.getElementById('toast');
+                const icon = document.getElementById('toastIcon');
+                const txt = document.getElementById('toastMsg');
+                txt.innerText = msg;
+                if (isError) {
+                    toast.classList.replace('bg-gray-800', 'bg-red-600');
+                    icon.className = 'fas fa-exclamation-triangle text-white text-lg';
+                } else {
+                    toast.classList.replace('bg-red-600', 'bg-gray-800');
+                    icon.className = 'fas fa-check-circle text-green-400 text-lg';
+                }
+                toast.classList.remove('opacity-0', 'translate-y-2');
+                toast.classList.add('opacity-100', 'translate-y-0');
+                setTimeout(() => {
+                    toast.classList.remove('opacity-100', 'translate-y-0');
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                }, 3000);
             },
 
-            parseAndRenderSqlGuide: function() {
-                const container = document.getElementById('sqlGuideContainer');
-                if(!container) return;
-                const blocks = SQL_EXAMPLES_MD.split(/\[질문 예시 \d+\]/);
-                let html = `<div class="grid grid-cols-1 gap-6 pb-10">`;
+            // --- Multi-Tab & CTE Logic ---
+            addCTE: function() {
+                const num = this.tabs.length;
+                const cteId = 'sub_agg_' + num;
+                this.tabs.push(cteId);
+                this.queries[cteId] = { id: cteId, name: cteId, baseTable: '', dimensions: [], metrics: [], filters: [], joins: [], dateRange: { start: '', end: '' } };
+                this.switchTab(cteId);
+            },
+
+            switchTab: function(tabId) {
+                this.activeTab = tabId;
+                this.updateAllUI();
+            },
+
+            removeCTE: function(cteId) {
+                this.tabs = this.tabs.filter(t => t !== cteId);
+                delete this.queries[cteId];
+                if (this.activeTab === cteId) this.activeTab = 'main';
+                this.showToast(`서브쿼리 '${cteId}'가 삭제되었습니다.`);
+                this.updateAllUI();
+            },
+
+            refreshCTESchemas: function() {
+                this.cteSchemas = {};
+                for (let tabId of this.tabs) {
+                    if (tabId === 'main') continue;
+                    const q = this.queries[tabId];
+                    if (!q.baseTable) continue; 
+                    
+                    let cols = {};
+                    q.dimensions.forEach(d => {
+                        let colName = d.showBucket && d.buckets && d.buckets.length > 0 ? `${d.col}_bucket` : d.col;
+                        cols[colName] = 'dim';
+                    });
+                    q.metrics.forEach(m => {
+                        let colName = m.isCalc ? m.alias : (m.agg === 'COUNT_DISTINCT' ? `cnt_dist_${m.col}` : `${m.agg.toLowerCase()}_${m.col}`);
+                        cols[colName] = 'num';
+                    });
+                    
+                    this.cteSchemas[tabId] = { db: '', name: '서브쿼리(CTE)', part: '', type: 'cte', cols: cols };
+                }
+            },
+
+            getAllSchemas: function() {
+                return { ...DB_SCHEMA, ...this.cteSchemas };
+            },
+
+            renderTabs: function() {
+                const container = document.getElementById('tabContainer');
+                container.innerHTML = this.tabs.map(t => {
+                    const isActive = t === this.activeTab;
+                    const title = t === 'main' ? '<i class="fas fa-home text-blue-500 mr-1"></i> 메인 쿼리' : `<i class="fas fa-code-branch text-purple-500 mr-1"></i> ${t}`;
+                    return `
+                        <div onclick="app.switchTab('${t}')" class="px-4 py-2 text-xs font-bold cursor-pointer rounded-t-lg border border-b-0 flex items-center gap-2 ${isActive ? 'bg-white text-gray-800 border-gray-200 shadow-[0_2px_0_0_white]' : 'bg-[#e2e8f0] text-gray-500 border-transparent hover:bg-gray-200'} transition-colors relative" style="${isActive ? 'z-index: 2;' : ''}">
+                            ${title}
+                            ${t !== 'main' ? `<i class="fas fa-times text-gray-400 hover:text-red-500 ml-2" onclick="event.stopPropagation(); app.removeCTE('${t}')"></i>` : ''}
+                        </div>
+                    `;
+                }).join('');
                 
-                blocks.forEach((block, index) => {
-                    if (index === 0) return; 
-                    const parts = block.split(/\[답변 Hive SQL\]/);
-                    if (parts.length >= 2) {
-                        const questionText = parts[0].trim();
-                        let sqlText = parts[1].trim().replace(/\[학습 사례 시작\]/g, '').trim();
-                        const qLines = questionText.split('\n');
-                        const title = qLines[0].trim();
-                        const desc = qLines.slice(1).join('<br>').trim();
+                container.innerHTML += `
+                    <button onclick="app.addCTE()" class="px-3 py-1.5 mt-0.5 mb-1 ml-2 text-xs font-bold bg-white text-gray-600 border border-dashed border-gray-300 rounded hover:bg-gray-50 hover:text-blue-600 transition flex items-center gap-1 shadow-sm">
+                        <i class="fas fa-plus"></i> 서브쿼리(CTE) 추가
+                    </button>
+                `;
+            },
 
-                        html += `
-                            <div class="bg-[#252526] rounded-xl shadow-lg border border-[#333] overflow-hidden flex flex-col group">
-                                <div class="px-5 py-4 border-b border-[#333] bg-[#2a2d2e]">
-                                    <div class="flex items-start gap-3">
-                                        <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded mt-0.5">예제 ${index}</span>
-                                        <h4 class="text-sm font-bold text-gray-200 leading-snug">${title}</h4>
-                                    </div>
-                                    ${desc ? `<div class="text-[12px] text-gray-400 ml-[52px] mt-2 bg-[#1e1e1e] p-3 rounded border border-[#333]">${desc}</div>` : ''}
-                                </div>
-                                <div class="relative bg-[#1e1e1e] text-[13px] font-mono leading-relaxed p-5 overflow-x-auto vscode-dark">
-                                    <button onclick="app.copyText(this)" data-clipboard="${encodeURIComponent(sqlText)}" class="absolute top-3 right-3 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <i class="fas fa-copy"></i> 복사
-                                    </button>
-                                    ${this.syntaxHighlightVSCode(sqlText)}
-                                </div>
-                            </div>
-                        `;
+            updateAllUI: function() {
+                this.refreshCTESchemas();
+                this.renderTabs();
+                this.renderBaseTableOptions();
+                
+                const q = this.q();
+                const baseTableSelect = document.getElementById('baseTableSelect');
+                if(baseTableSelect) baseTableSelect.value = q.baseTable;
+
+                // Partition Labels
+                const labelEl = document.getElementById('partitionLabel');
+                const descEl = document.getElementById('partitionDesc');
+                
+                if (q.baseTable) {
+                    const info = this.getAllSchemas()[q.baseTable];
+                    if(info) {
+                        if (info.type === 'cte') {
+                            labelEl.innerHTML = `<i class="fas fa-filter text-purple-600"></i> 서브쿼리 결과 필터 (파티션 없음)`;
+                            descEl.innerHTML = `서브쿼리(CTE)는 파티션 기간을 적용받지 않으며, 일반 조건 필터로만 동작합니다.`;
+                        } else {
+                            let formatStr = 'YYYYMMDD';
+                            if (q.baseTable === 'AD_KEYWORD') formatStr = 'YYYYMMDD02';
+                            labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${info.part}) <span class="text-red-500">*필수</span>`;
+                            descEl.innerHTML = `기준 테이블 정책에 맞춰 <b>${formatStr}</b> 포맷으로 자동 변환되어 적용됩니다.`;
+                        }
                     }
-                });
-                html += `</div>`;
-                container.innerHTML = html;
-            },
+                } else {
+                    labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>`;
+                    descEl.innerHTML = `기준 테이블을 선택하면 파티션 정책이 표시됩니다.`;
+                }
 
-            copyText: function(btn) {
-                const text = decodeURIComponent(btn.getAttribute('data-clipboard'));
-                const temp = document.createElement('textarea');
-                temp.value = text;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                document.body.removeChild(temp);
-                
-                const original = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
-                setTimeout(() => { btn.innerHTML = original; }, 2000);
-            },
+                document.getElementById('dateStart').value = q.dateRange.start || '';
+                document.getElementById('dateEnd').value = q.dateRange.end || '';
 
-            reset: function() {
-                state.baseTable = '';
-                state.dimensions = [];
-                state.metrics = [];
-                state.filters = [];
-                state.dateRange = { start: '', end: '' };
-                state.joins = [];
-                
-                document.getElementById('dateStart').value = '';
-                document.getElementById('dateEnd').value = '';
-                document.getElementById('baseTableSelect').value = '';
-                document.getElementById('partitionLabel').innerHTML = '<i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>';
-                
+                this.renderSchemaExplorer();
                 this.renderDimensions();
                 this.renderMetrics();
                 this.renderJoinsUI();
@@ -774,26 +784,43 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 this.generateSQL();
             },
 
+            reset: function() {
+                this.queries[this.activeTab] = { id: this.activeTab, name: this.activeTab, baseTable: '', dimensions: [], metrics: [], filters: [], joins: [], dateRange: { start: '', end: '' } };
+                this.updateAllUI();
+            },
+
             renderBaseTableOptions: function() {
                 const select = document.getElementById('baseTableSelect');
-                Object.keys(DB_SCHEMA).forEach(key => {
-                    select.innerHTML += `<option value="${key}">${key} (${DB_SCHEMA[key].name})</option>`;
+                select.innerHTML = '<option value="">데이터 마트를 선택하세요 (필수)</option>';
+                const allSchemas = this.getAllSchemas();
+                
+                Object.keys(allSchemas).forEach(key => {
+                    if (key === this.activeTab) return; // Cannot select self
+                    const isCte = allSchemas[key].type === 'cte';
+                    select.innerHTML += `<option value="${key}">${key} ${isCte ? '(서브쿼리)' : `(${allSchemas[key].name})`}</option>`;
                 });
             },
 
             renderSchemaExplorer: function() {
                 const container = document.getElementById('schemaExplorer');
                 container.innerHTML = '';
+                const allSchemas = this.getAllSchemas();
                 
-                Object.keys(DB_SCHEMA).forEach(tableName => {
-                    const table = DB_SCHEMA[tableName];
+                Object.keys(allSchemas).forEach(tableName => {
+                    if (tableName === this.activeTab) return; // Hide current CTE from itself to prevent self-loop
+
+                    const table = allSchemas[tableName];
                     const isFact = table.type === 'fact';
+                    const isCte = table.type === 'cte';
                     
+                    let iconColor = isFact ? 'text-yellow-500 fa-bolt' : (isCte ? 'text-purple-500 fa-code-branch' : 'text-blue-500 fa-cube');
+                    let bgClass = isCte ? 'bg-purple-50' : 'bg-gray-50';
+
                     let html = `
                         <div class="mb-1 bg-white rounded border border-gray-200 overflow-hidden schema-table" data-name="${tableName.toLowerCase()}">
-                            <div class="px-3 py-2 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition select-none" onclick="app.toggleCollapse('${tableName}')">
+                            <div class="px-3 py-2 ${bgClass} flex items-center justify-between cursor-pointer hover:bg-gray-100 transition select-none" onclick="app.toggleCollapse('${tableName}')">
                                 <div class="flex items-center gap-2 overflow-hidden">
-                                    <i class="fas ${isFact ? 'fa-bolt text-yellow-500' : 'fa-cube text-blue-500'} text-[10px]"></i>
+                                    <i class="fas ${iconColor} text-[10px]"></i>
                                     <div class="truncate">
                                         <div class="text-[11px] font-bold text-gray-800">${tableName}</div>
                                         <div class="text-[9px] text-gray-400">${table.name}</div>
@@ -827,7 +854,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                 </div>
                         `;
                     });
-                    
                     html += `</div></div>`;
                     container.innerHTML += html;
                 });
@@ -839,27 +865,18 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     const tName = tbl.getAttribute('data-name');
                     let showTable = tName.includes(term);
                     let hasMatchCol = false;
-                    
                     tbl.querySelectorAll('.schema-col').forEach(col => {
                         const cName = col.getAttribute('data-name');
-                        if (cName.includes(term)) {
-                            col.style.display = 'flex';
-                            hasMatchCol = true;
-                        } else {
-                            col.style.display = 'none';
-                        }
+                        if (cName.includes(term)) { col.style.display = 'flex'; hasMatchCol = true; } 
+                        else { col.style.display = 'none'; }
                     });
-                    
                     if (showTable || hasMatchCol) {
                         tbl.style.display = 'block';
-                        // Expand if there's a column match but not a full table match, or just searching deeply
                         if (term.length > 0 && hasMatchCol) {
                             const body = tbl.querySelector('.flex-col.bg-white');
                             if(body) { body.classList.remove('hidden'); body.classList.add('flex'); }
                         }
-                    } else {
-                        tbl.style.display = 'none';
-                    }
+                    } else { tbl.style.display = 'none'; }
                 });
             },
 
@@ -873,156 +890,110 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
 
             handleDragStart: function(e, table, col, type) {
                 const data = { table, col, type };
-                // HTML5 표준 Drag Data API 사용 (데이터 유실 방지)
                 e.dataTransfer.setData('application/json', JSON.stringify(data));
                 e.dataTransfer.effectAllowed = 'copy';
-                window.dragItemFallback = data; // 모바일/예외상황 대비 폴백
+                window.dragItemFallback = data; 
             },
 
             setupDragAndDrop: function() {
                 const setupZone = (id, acceptCallback) => {
                     const zone = document.getElementById(id);
-                    
-                    zone.addEventListener('dragenter', (e) => {
-                        e.preventDefault();
-                        if (state.baseTable) zone.classList.add('drag-over');
-                    });
-
-                    zone.addEventListener('dragover', (e) => {
-                        e.preventDefault(); // 드롭 허용을 위해 필수
-                        e.dataTransfer.dropEffect = 'copy';
-                        if (state.baseTable) zone.classList.add('drag-over');
-                    });
-                    
-                    zone.addEventListener('dragleave', (e) => {
-                        e.preventDefault();
-                        // 자식 요소로 드래그가 넘어갈 때 깜빡임(드롭 실패) 방지
-                        if (!zone.contains(e.relatedTarget)) {
-                            zone.classList.remove('drag-over');
-                        }
-                    });
-                    
+                    zone.addEventListener('dragenter', (e) => { e.preventDefault(); if (app.q().baseTable) zone.classList.add('drag-over'); });
+                    zone.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (app.q().baseTable) zone.classList.add('drag-over'); });
+                    zone.addEventListener('dragleave', (e) => { e.preventDefault(); if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over'); });
                     zone.addEventListener('drop', (e) => {
                         e.preventDefault();
                         zone.classList.remove('drag-over');
-                        if (!state.baseTable) {
-                            showToast('먼저 STEP 1의 기준 테이블(Base Table)을 선택해 주세요.', true);
-                            return;
-                        }
-                        
+                        if (!app.q().baseTable) { app.showToast('먼저 STEP 1의 기준 테이블(Base Table)을 선택해 주세요.', true); return; }
                         try {
                             const jsonData = e.dataTransfer.getData('application/json');
                             const data = jsonData ? JSON.parse(jsonData) : window.dragItemFallback;
                             if (data) {
                                 acceptCallback(data);
-                                this.autoAddJoinPath(data.table);
+                                app.autoAddJoinPath(data.table);
                                 window.dragItemFallback = null;
                             }
-                        } catch(err) {
-                            console.error('Drag & Drop Parsing Error:', err);
-                        }
+                        } catch(err) { console.error('Drag & Drop Parsing Error:', err); }
                     });
                 };
 
                 setupZone('dimensionsList', (data) => {
-                    state.dimensions.push({ id: Date.now(), showBucket: false, buckets: [], elseLabel: '기타', ...data });
-                    this.renderDimensions();
-                    this.generateSQL();
+                    app.q().dimensions.push({ id: Date.now(), showBucket: false, buckets: [], elseLabel: '기타', ...data });
+                    app.updateAllUI();
                 });
 
                 setupZone('metricsList', (data) => {
                     let agg = 'SUM';
-                    const colType = DB_SCHEMA[data.table].cols[data.col];
-                    if(!['num', 'int', 'bigint', 'double'].includes(colType)) agg = 'COUNT_DISTINCT';
-                    state.metrics.push({ id: Date.now(), agg: agg, ...data });
-                    this.renderMetrics();
-                    this.generateSQL();
+                    const schema = app.getAllSchemas()[data.table];
+                    if (schema) {
+                        const colType = schema.cols[data.col];
+                        if(!['num', 'int', 'bigint', 'double'].includes(colType)) agg = 'COUNT_DISTINCT';
+                    }
+                    app.q().metrics.push({ id: Date.now(), agg: agg, ...data });
+                    app.updateAllUI();
                 });
             },
 
             autoAddJoinPath: function(targetTable) {
-                if (targetTable === state.baseTable) return;
+                const q = this.q();
+                if (targetTable === q.baseTable) return;
                 
-                // 이미 조인 목록에 존재하는지 확인 (양방향 체크)
-                const isJoined = state.joins.some(j => j.toTable === targetTable || j.fromTable === targetTable);
+                const isJoined = q.joins.some(j => j.toTable === targetTable || j.fromTable === targetTable);
                 if (isJoined) return;
 
-                // ERD 기반 1 Depth 연결 탐색 (현재 활성화된 모든 테이블 기준)
-                const activeTables = [state.baseTable, ...state.joins.map(j => j.toTable), ...state.joins.map(j => j.fromTable)].filter(Boolean);
-                
+                const allSchemas = this.getAllSchemas();
+                if (allSchemas[targetTable] && allSchemas[targetTable].type === 'cte') {
+                    q.joins.push({ id: Date.now(), type: 'LEFT JOIN', fromTable: q.baseTable, toTable: targetTable, conditions: [{ fromCol: '', toCol: '' }] });
+                    this.renderJoinsUI();
+                    return;
+                }
+
+                const activeTables = [q.baseTable, ...q.joins.map(j => j.toTable), ...q.joins.map(j => j.fromTable)].filter(Boolean);
                 for (let source of activeTables) {
                     const edges = ERD_GRAPH[source] || [];
                     const edge = edges.find(e => e.target === targetTable);
                     if (edge) {
-                        state.joins.push({
-                            id: Date.now(),
-                            type: 'LEFT JOIN',
-                            fromTable: source,
-                            toTable: targetTable,
-                            conditions: [{ fromCol: edge.on[0], toCol: edge.on[1] }]
-                        });
+                        q.joins.push({ id: Date.now(), type: 'LEFT JOIN', fromTable: source, toTable: targetTable, conditions: [{ fromCol: edge.on[0], toCol: edge.on[1] }] });
                         this.renderJoinsUI();
                         return;
                     }
                 }
                 
-                // 직접 연결 경로를 못 찾은 경우 빈 조인 껍데기 추가
-                state.joins.push({
-                    id: Date.now(),
-                    type: 'LEFT JOIN',
-                    fromTable: state.baseTable,
-                    toTable: targetTable,
-                    conditions: [{ fromCol: '', toCol: '' }]
-                });
+                q.joins.push({ id: Date.now(), type: 'LEFT JOIN', fromTable: q.baseTable, toTable: targetTable, conditions: [{ fromCol: '', toCol: '' }] });
                 this.renderJoinsUI();
             },
 
             setBaseTable: function(val) {
-                state.baseTable = val;
-                state.joins = []; 
-                
-                if (val) {
-                    const info = DB_SCHEMA[val];
-                    const labelEl = document.getElementById('partitionLabel');
-                    
-                    let formatStr = 'YYYYMMDD';
-                    if (val === 'AD_KEYWORD') formatStr = 'YYYYMMDD02';
-                    
-                    labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${info.part}) <span class="text-red-500">*필수</span>`;
-                    document.getElementById('partitionDesc').innerHTML = `기준 테이블 정책에 맞춰 <b>${formatStr}</b> 포맷으로 자동 변환되어 적용됩니다.`;
-                }
-                
-                this.renderJoinsUI();
-                this.generateSQL();
+                const q = this.q();
+                q.baseTable = val;
+                q.joins = []; 
+                this.updateAllUI();
             },
 
-            getActiveTables: function() {
+            getActiveTables: function(qObj) {
                 const tables = new Set();
-                if (state.baseTable) tables.add(state.baseTable);
-                state.dimensions.forEach(d => tables.add(d.table));
-                state.metrics.forEach(m => {
-                    if (m.isCalc) {
-                        Object.keys(DB_SCHEMA).forEach(t => {
-                            if (m.formula && m.formula.includes(t + '.')) tables.add(t);
-                        });
-                    } else {
-                        tables.add(m.table);
-                    }
+                const q = qObj || this.q();
+                const allSchemas = this.getAllSchemas();
+
+                if (q.baseTable) tables.add(q.baseTable);
+                q.dimensions.forEach(d => tables.add(d.table));
+                q.metrics.forEach(m => {
+                    if (m.isCalc) { Object.keys(allSchemas).forEach(t => { if (m.formula && m.formula.includes(t + '.')) tables.add(t); }); }
+                    else { tables.add(m.table); }
                 });
-                state.filters.forEach(f => { if(f.table) tables.add(f.table); });
-                state.joins.forEach(j => { if(j.fromTable) tables.add(j.fromTable); if(j.toTable) tables.add(j.toTable); });
+                q.filters.forEach(f => { if(f.table) tables.add(f.table); });
+                q.joins.forEach(j => { if(j.fromTable) tables.add(j.fromTable); if(j.toTable) tables.add(j.toTable); });
                 return tables;
             },
 
-            // --- Dimensions ---
             renderDimensions: function() {
+                const q = this.q();
                 const container = document.getElementById('dimensionsList');
-                if (state.dimensions.length === 0) {
+                if (q.dimensions.length === 0) {
                     container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">Drag & Drop</p></div>`;
                     return;
                 }
-                
-                container.innerHTML = state.dimensions.map(d => `
+                container.innerHTML = q.dimensions.map(d => `
                     <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
                         <div class="flex justify-between items-center text-xs">
                             <div class="flex items-center gap-2 truncate">
@@ -1079,22 +1050,22 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     </div>
                 `).join('');
             },
-            removeDim: function(id) { state.dimensions = state.dimensions.filter(d => d.id !== id); this.renderDimensions(); this.generateSQL(); },
-            toggleBucket: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.showBucket = !d.showBucket; this.renderDimensions(); } },
-            addBucketRule: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.push({ op: '>=', val: '0', label: '그룹명' }); this.renderDimensions(); this.generateSQL(); } },
-            updateBucketRule: function(id, idx, field, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets[idx][field] = val; this.generateSQL(); } },
-            removeBucketRule: function(id, idx) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.splice(idx, 1); this.renderDimensions(); this.generateSQL(); } },
-            updateBucketElse: function(id, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.elseLabel = val; this.generateSQL(); } },
-            updateBucketAgg: function(id, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.bucketAgg = val; this.generateSQL(); } },
+            removeDim: function(id) { this.q().dimensions = this.q().dimensions.filter(d => d.id !== id); this.renderDimensions(); this.generateSQL(); },
+            toggleBucket: function(id) { const d = this.q().dimensions.find(x => x.id === id); if(d) { d.showBucket = !d.showBucket; this.renderDimensions(); } },
+            addBucketRule: function(id) { const d = this.q().dimensions.find(x => x.id === id); if(d) { d.buckets.push({ op: '>=', val: '0', label: '그룹명' }); this.renderDimensions(); this.generateSQL(); } },
+            updateBucketRule: function(id, idx, field, val) { const d = this.q().dimensions.find(x => x.id === id); if(d) { d.buckets[idx][field] = val; this.generateSQL(); } },
+            removeBucketRule: function(id, idx) { const d = this.q().dimensions.find(x => x.id === id); if(d) { d.buckets.splice(idx, 1); this.renderDimensions(); this.generateSQL(); } },
+            updateBucketElse: function(id, val) { const d = this.q().dimensions.find(x => x.id === id); if(d) { d.elseLabel = val; this.generateSQL(); } },
+            updateBucketAgg: function(id, val) { const d = this.q().dimensions.find(x => x.id === id); if(d) { d.bucketAgg = val; this.generateSQL(); } },
 
-            // --- Metrics ---
             renderMetrics: function() {
+                const q = this.q();
                 const container = document.getElementById('metricsList');
-                if (state.metrics.length === 0) {
+                if (q.metrics.length === 0) {
                     container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">Drag & Drop</p></div>`;
                     return;
                 }
-                container.innerHTML = state.metrics.map(m => {
+                container.innerHTML = q.metrics.map(m => {
                     if (m.isCalc) {
                         return `
                         <div class="bg-green-50 border border-green-300 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
@@ -1135,22 +1106,23 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     }
                 }).join('');
             },
-            addCalcMetric: function() { state.metrics.push({ id: Date.now(), isCalc: true, formula: '', alias: 'new_metric' }); this.renderMetrics(); this.generateSQL(); },
-            removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
-            updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
-            updateCalcMetric: function(id, field, val) { const m = state.metrics.find(x => x.id === id); if (m) m[field] = val; this.generateSQL(); },
+            addCalcMetric: function() { this.q().metrics.push({ id: Date.now(), isCalc: true, formula: '', alias: 'new_metric' }); this.renderMetrics(); this.generateSQL(); },
+            removeMetric: function(id) { this.q().metrics = this.q().metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
+            updateMetricAgg: function(id, val) { const m = this.q().metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
+            updateCalcMetric: function(id, field, val) { const m = this.q().metrics.find(x => x.id === id); if (m) m[field] = val; this.generateSQL(); },
 
-            // --- Joins ---
             renderJoinsUI: function() {
+                const q = this.q();
                 const container = document.getElementById('joinConfigList');
-                if (state.joins.length === 0) {
+                if (q.joins.length === 0) {
                     container.innerHTML = `<div class="text-center text-[11px] text-gray-400 py-4 bg-gray-50 border border-dashed border-gray-200 rounded-lg">기준 테이블 외에 다른 테이블 컬럼을 사용하면 여기에 조인이 표시됩니다.</div>`;
                     return;
                 }
 
-                const allTables = Object.keys(DB_SCHEMA);
+                const allSchemas = this.getAllSchemas();
+                const allTables = Object.keys(allSchemas);
                 
-                container.innerHTML = state.joins.map(j => {
+                container.innerHTML = q.joins.map(j => {
                     const fromOptions = allTables.map(t => `<option value="${t}" ${t === j.fromTable ? 'selected' : ''}>${t}</option>`).join('');
                     const toOptions = allTables.map(t => `<option value="${t}" ${t === j.toTable ? 'selected' : ''}>${t}</option>`).join('');
 
@@ -1162,6 +1134,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                 <option value="INNER JOIN" ${j.type === 'INNER JOIN' ? 'selected' : ''}>INNER JOIN</option>
                                 <option value="RIGHT JOIN" ${j.type === 'RIGHT JOIN' ? 'selected' : ''}>RIGHT JOIN</option>
                                 <option value="UNION ALL" ${j.type === 'UNION ALL' ? 'selected' : ''}>UNION ALL</option>
+                                <option value="UNION" ${j.type === 'UNION' ? 'selected' : ''}>UNION</option>
                             </select>
                             <i class="fas fa-arrow-right text-gray-400 text-[10px]"></i>
                             <select onchange="app.updateJoin(${j.id}, 'toTable', this.value)" class="text-xs border border-gray-300 rounded p-1 flex-1 outline-none">
@@ -1170,7 +1143,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                             <button onclick="app.removeJoin(${j.id})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-trash-alt"></i></button>
                         </div>
                         
-                        ${j.type !== 'UNION ALL' ? `
+                        ${j.type !== 'UNION ALL' && j.type !== 'UNION' ? `
                             <div class="bg-white border border-gray-200 rounded p-2 text-xs">
                                 <div class="font-bold text-gray-600 mb-1 flex justify-between items-center">
                                     <span><i class="fas fa-link text-gray-400"></i> ON 조건</span>
@@ -1178,8 +1151,8 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                 </div>
                                 <div class="space-y-1">
                                     ${j.conditions.map((cond, idx) => {
-                                        const fCols = j.fromTable && DB_SCHEMA[j.fromTable] ? Object.keys(DB_SCHEMA[j.fromTable].cols).map(c=>`<option value="${c}" ${c===cond.fromCol?'selected':''}>${c}</option>`).join('') : '<option value="">컬럼</option>';
-                                        const tCols = j.toTable && DB_SCHEMA[j.toTable] ? Object.keys(DB_SCHEMA[j.toTable].cols).map(c=>`<option value="${c}" ${c===cond.toCol?'selected':''}>${c}</option>`).join('') : '<option value="">컬럼</option>';
+                                        const fCols = j.fromTable && allSchemas[j.fromTable] ? Object.keys(allSchemas[j.fromTable].cols).map(c=>`<option value="${c}" ${c===cond.fromCol?'selected':''}>${c}</option>`).join('') : '<option value="">컬럼</option>';
+                                        const tCols = j.toTable && allSchemas[j.toTable] ? Object.keys(allSchemas[j.toTable].cols).map(c=>`<option value="${c}" ${c===cond.toCol?'selected':''}>${c}</option>`).join('') : '<option value="">컬럼</option>';
                                         return `
                                         <div class="flex items-center gap-1">
                                             ${idx > 0 ? '<span class="text-[10px] font-bold text-purple-600 bg-purple-50 px-1 rounded">AND</span>' : ''}
@@ -1205,24 +1178,25 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     `;
                 }).join('');
             },
-            addJoin: function() { state.joins.push({ id: Date.now(), type: 'LEFT JOIN', fromTable: state.baseTable, toTable: '', conditions: [{ fromCol: '', toCol: '' }] }); this.renderJoinsUI(); this.generateSQL(); },
-            removeJoin: function(id) { state.joins = state.joins.filter(j => j.id !== id); this.renderJoinsUI(); this.generateSQL(); },
-            updateJoin: function(id, field, val) { const j = state.joins.find(x => x.id === id); if(j) j[field] = val; this.renderJoinsUI(); this.generateSQL(); },
-            addJoinCondition: function(id) { const j = state.joins.find(x => x.id === id); if(j) j.conditions.push({ fromCol: '', toCol: '' }); this.renderJoinsUI(); this.generateSQL(); },
-            updateJoinCondition: function(id, idx, field, val) { const j = state.joins.find(x => x.id === id); if(j) j.conditions[idx][field] = val; this.generateSQL(); },
-            removeJoinCondition: function(id, idx) { const j = state.joins.find(x => x.id === id); if(j) { j.conditions.splice(idx, 1); if(j.conditions.length===0) j.conditions.push({fromCol:'',toCol:''}); } this.renderJoinsUI(); this.generateSQL(); },
+            addJoin: function() { this.q().joins.push({ id: Date.now(), type: 'LEFT JOIN', fromTable: this.q().baseTable, toTable: '', conditions: [{ fromCol: '', toCol: '' }] }); this.renderJoinsUI(); this.generateSQL(); },
+            removeJoin: function(id) { this.q().joins = this.q().joins.filter(j => j.id !== id); this.renderJoinsUI(); this.generateSQL(); },
+            updateJoin: function(id, field, val) { const j = this.q().joins.find(x => x.id === id); if(j) j[field] = val; this.renderJoinsUI(); this.generateSQL(); },
+            addJoinCondition: function(id) { const j = this.q().joins.find(x => x.id === id); if(j) j.conditions.push({ fromCol: '', toCol: '' }); this.renderJoinsUI(); this.generateSQL(); },
+            updateJoinCondition: function(id, idx, field, val) { const j = this.q().joins.find(x => x.id === id); if(j) j.conditions[idx][field] = val; this.generateSQL(); },
+            removeJoinCondition: function(id, idx) { const j = this.q().joins.find(x => x.id === id); if(j) { j.conditions.splice(idx, 1); if(j.conditions.length===0) j.conditions.push({fromCol:'',toCol:''}); } this.renderJoinsUI(); this.generateSQL(); },
 
-            // --- Filters ---
             renderFilters: function() {
+                const q = this.q();
                 const container = document.getElementById('filterList');
                 if (!container) return;
-                if (state.filters.length === 0) { container.innerHTML = ''; return; }
+                if (q.filters.length === 0) { container.innerHTML = ''; return; }
                 
-                const activeTables = Array.from(this.getActiveTables());
+                const activeTables = Array.from(this.getActiveTables(q));
+                const allSchemas = this.getAllSchemas();
                 
-                container.innerHTML = state.filters.map((f, i) => {
+                container.innerHTML = q.filters.map((f, i) => {
                     const tableOpts = activeTables.map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
-                    const colOpts = f.table && DB_SCHEMA[f.table] ? Object.keys(DB_SCHEMA[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('') : '<option value="">테이블 먼저 선택</option>';
+                    const colOpts = f.table && allSchemas[f.table] ? Object.keys(allSchemas[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('') : '<option value="">테이블 먼저 선택</option>';
                     
                     return `
                     <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-sm fade-in">
@@ -1266,143 +1240,233 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     `;
                 }).join('');
             },
-            addFilter: function() { const active = Array.from(this.getActiveTables()); state.filters.push({ table: active[0]||'', col: '', type: 'WHERE', op: '=', val: "''", logic: 'AND' }); this.renderFilters(); },
-            updateFilter: function(i, field, val) { state.filters[i][field] = val; if (field === 'table') { state.filters[i].col = ''; this.renderFilters(); } this.generateSQL(); },
-            removeFilter: function(i) { state.filters.splice(i, 1); this.renderFilters(); this.generateSQL(); },
-            updateDate: function() { state.dateRange.start = document.getElementById('dateStart').value; state.dateRange.end = document.getElementById('dateEnd').value; this.generateSQL(); },
+            addFilter: function() { const active = Array.from(this.getActiveTables()); this.q().filters.push({ table: active[0]||'', col: '', type: 'WHERE', op: '=', val: "''", logic: 'AND' }); this.renderFilters(); },
+            updateFilter: function(i, field, val) { this.q().filters[i][field] = val; if (field === 'table') { this.q().filters[i].col = ''; this.renderFilters(); } this.generateSQL(); },
+            removeFilter: function(i) { this.q().filters.splice(i, 1); this.renderFilters(); this.generateSQL(); },
+            updateDate: function() { this.q().dateRange.start = document.getElementById('dateStart').value; this.q().dateRange.end = document.getElementById('dateEnd').value; this.generateSQL(); },
 
-            // --- SQL Generation ---
             generateSQL: function() {
+                this.refreshCTESchemas();
                 const out = document.getElementById('sqlOutput');
                 
-                if (!state.baseTable) {
-                    out.innerHTML = `<span class="token-comment">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="token-keyword">SELECT</span> \n    * \n<span class="token-keyword">FROM</span> dual;`;
-                    return;
+                let outSql = '';
+                let ctes = this.tabs.filter(t => t !== 'main');
+                let validCtes = [];
+                
+                for (let cte of ctes) {
+                    const q = this.queries[cte];
+                    if (q.baseTable) {
+                        let sql = this.buildSingleSQL(q);
+                        validCtes.push(`    ${cte} <span class="token-keyword">AS</span> (\n${this.indentSQL(sql)}\n    )`);
+                    }
+                }
+                
+                if (validCtes.length > 0) {
+                    outSql += `<span class="token-keyword">WITH</span>\n${validCtes.join(',\n')}\n\n`;
                 }
 
-                const activeTables = this.getActiveTables();
-                state.aliases = {};
+                if (!this.queries['main'].baseTable && this.activeTab === 'main') {
+                    if (outSql.length === 0) {
+                        out.innerHTML = `<span class="token-comment">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="token-keyword">SELECT</span> \n    * \n<span class="token-keyword">FROM</span> dual;`;
+                        return;
+                    } else {
+                        outSql += `<span class="token-comment">-- 메인 쿼리 기준 테이블 미선택</span>\n<span class="token-keyword">SELECT</span> * <span class="token-keyword">FROM</span> dual;`;
+                    }
+                } else if (this.queries['main'].baseTable) {
+                    outSql += this.buildSingleSQL(this.queries['main']);
+                } else if (this.activeTab !== 'main') {
+                    // Previewing CTE tab
+                    outSql += `<span class="token-comment">-- 현재 '${this.activeTab}' 서브쿼리 탭을 미리보고 있습니다.</span>\n`;
+                    outSql += `<span class="token-keyword">SELECT</span> * <span class="token-keyword">FROM</span> ${this.activeTab};`;
+                }
+
+                out.innerHTML = outSql;
+            },
+
+            buildSingleSQL: function(q) {
+                if (!q.baseTable) return `<span class="token-comment">-- 테이블 미선택</span>`;
+                const allSchemas = this.getAllSchemas();
+                const info = allSchemas[q.baseTable];
+                
+                const activeTables = this.getActiveTables(q);
+                const aliases = {};
                 const alphabet = 'abcdefghijklmnopqrstuvwxyz';
                 let aliasIdx = 0;
-                activeTables.forEach(t => { state.aliases[t] = alphabet[aliasIdx++]; });
+                activeTables.forEach(t => { aliases[t] = alphabet[aliasIdx++]; });
 
                 let sql = `<span class="token-keyword">SELECT</span>\n`;
                 const selects = [];
                 const groupBys = [];
 
-                // Dimensions (SELECT & GROUP BY)
-                state.dimensions.forEach(d => {
-                    const aliasPrefix = state.aliases[d.table] ? `${state.aliases[d.table]}.` : '';
-                    
+                q.dimensions.forEach(d => {
+                    const aliasPrefix = aliases[d.table] ? `${aliases[d.table]}.` : '';
                     if (d.showBucket && d.buckets && d.buckets.length > 0) {
                         let caseStr = `<span class="token-keyword">CASE</span>\n`;
                         let colExpr = d.bucketAgg ? `<span class="token-function">${d.bucketAgg}</span>(${aliasPrefix}${d.col})` : `${aliasPrefix}${d.col}`;
-
-                        d.buckets.forEach(b => {
-                            caseStr += `        <span class="token-keyword">WHEN</span> ${colExpr} ${b.op} ${b.val} <span class="token-keyword">THEN</span> '<span class="token-string">${b.label}</span>'\n`;
-                        });
-                        caseStr += `        <span class="token-keyword">ELSE</span> '<span class="token-string">${d.elseLabel || '기타'}</span>'\n`;
-                        caseStr += `    <span class="token-keyword">END</span>`;
-
+                        d.buckets.forEach(b => { caseStr += `        <span class="token-keyword">WHEN</span> ${colExpr} ${b.op} ${b.val} <span class="token-keyword">THEN</span> '<span class="token-string">${b.label}</span>'\n`; });
+                        caseStr += `        <span class="token-keyword">ELSE</span> '<span class="token-string">${d.elseLabel || '기타'}</span>'\n    <span class="token-keyword">END</span>`;
                         const bucketAlias = `${d.col}_bucket`;
                         selects.push(`    ${caseStr} <span class="token-keyword">AS</span> ${bucketAlias}`);
-                        
-                        // 집계함수(SUM, COUNT 등) 기반 구간화는 GROUP BY 제외
-                        if (!d.bucketAgg) {
-                            groupBys.push(`    ${bucketAlias}`); // Alias 사용 (Hive 지원)
-                        }
+                        if (!d.bucketAgg) groupBys.push(`    ${bucketAlias}`);
                     } else {
                         selects.push(`    ${aliasPrefix}${d.col}`);
                         groupBys.push(`    ${aliasPrefix}${d.col}`);
                     }
                 });
 
-                // Metrics (SELECT)
-                state.metrics.forEach(m => {
+                q.metrics.forEach(m => {
                     if (m.isCalc) {
                         let parsed = m.formula;
-                        Object.keys(state.aliases).forEach(tName => {
-                            parsed = parsed.replace(new RegExp(`\\b${tName}\\.`, 'g'), `${state.aliases[tName]}.`);
-                        });
+                        Object.keys(aliases).forEach(tName => { parsed = parsed.replace(new RegExp(`\\b${tName}\\.`, 'g'), `${aliases[tName]}.`); });
                         selects.push(`    ${parsed} <span class="token-keyword">AS</span> ${m.alias}`);
                     } else {
-                        const aliasPrefix = state.aliases[m.table] ? `${state.aliases[m.table]}.` : '';
-                        if (m.agg === 'COUNT_DISTINCT') {
-                            selects.push(`    <span class="token-function">COUNT</span>(<span class="token-keyword">DISTINCT</span> ${aliasPrefix}${m.col}) <span class="token-keyword">AS</span> cnt_dist_${m.col}`);
-                        } else {
-                            selects.push(`    <span class="token-function">${m.agg}</span>(${aliasPrefix}${m.col}) <span class="token-keyword">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
-                        }
+                        const aliasPrefix = aliases[m.table] ? `${aliases[m.table]}.` : '';
+                        if (m.agg === 'COUNT_DISTINCT') selects.push(`    <span class="token-function">COUNT</span>(<span class="token-keyword">DISTINCT</span> ${aliasPrefix}${m.col}) <span class="token-keyword">AS</span> cnt_dist_${m.col}`);
+                        else selects.push(`    <span class="token-function">${m.agg}</span>(${aliasPrefix}${m.col}) <span class="token-keyword">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
                     }
                 });
 
-                if (selects.length === 0) { sql += `    *\n`; } else { sql += selects.join(',\n') + '\n'; }
+                if (selects.length === 0) sql += `    *\n`; else sql += selects.join(',\n') + '\n';
 
-                // FROM
-                sql += `<span class="token-keyword">FROM</span> ${DB_SCHEMA[state.baseTable].db} ${state.aliases[state.baseTable]}\n`;
+                const baseDbName = info.type === 'cte' ? q.baseTable : info.db;
+                sql += `<span class="token-keyword">FROM</span> ${baseDbName} ${aliases[q.baseTable]}\n`;
 
-                // JOINS
-                state.joins.forEach(j => {
+                q.joins.forEach(j => {
                     if (!j.fromTable || !j.toTable) return;
-                    if (j.type === 'UNION ALL') {
-                        sql += `<span class="token-keyword">UNION ALL</span>\n<span class="token-keyword">SELECT</span> ... <span class="token-keyword">FROM</span> ${DB_SCHEMA[j.toTable].db} ${state.aliases[j.toTable]}\n`;
+                    const toInfo = allSchemas[j.toTable];
+                    const toDbName = toInfo.type === 'cte' ? j.toTable : toInfo.db;
+                    
+                    if (j.type === 'UNION ALL' || j.type === 'UNION') {
+                        sql += `<span class="token-keyword">${j.type}</span>\n<span class="token-keyword">SELECT</span> ... <span class="token-keyword">FROM</span> ${toDbName} ${aliases[j.toTable]}\n`;
                     } else {
-                        sql += `<span class="token-keyword">${j.type}</span> ${DB_SCHEMA[j.toTable].db} ${state.aliases[j.toTable]}\n`;
+                        sql += `<span class="token-keyword">${j.type}</span> ${toDbName} ${aliases[j.toTable]}\n`;
                         const ons = j.conditions.map((c, i) => {
                             if (!c.fromCol || !c.toCol) return '';
-                            return `    ${i===0 ? '<span class="token-keyword">ON</span>' : '<span class="token-keyword">AND</span>'} ${state.aliases[j.fromTable]}.${c.fromCol} = ${state.aliases[j.toTable]}.${c.toCol}`;
+                            return `    ${i===0 ? '<span class="token-keyword">ON</span>' : '<span class="token-keyword">AND</span>'} ${aliases[j.fromTable]}.${c.fromCol} = ${aliases[j.toTable]}.${c.toCol}`;
                         }).filter(Boolean);
-                        
-                        if (ons.length > 0) sql += ons.join('\n') + '\n';
-                        else sql += `    <span class="token-keyword">ON</span> 1=1 <span class="token-comment">-- 조건 없음</span>\n`;
+                        if (ons.length > 0) sql += ons.join('\n') + '\n'; else sql += `    <span class="token-keyword">ON</span> 1=1 <span class="token-comment">-- 조건 없음</span>\n`;
                     }
                 });
 
-                // WHERE
                 const wheres = [];
-                if (state.dateRange.start && state.dateRange.end) {
-                    let start = state.dateRange.start.replace(/-/g, '');
-                    let end = state.dateRange.end.replace(/-/g, '');
-                    if (state.baseTable === 'AD_KEYWORD') { start += '02'; end += '02'; }
-                    wheres.push(`${state.aliases[state.baseTable]}.${DB_SCHEMA[state.baseTable].part} <span class="token-keyword">BETWEEN</span> '${start}' <span class="token-keyword">AND</span> '${end}'`);
+                if (q.dateRange.start && q.dateRange.end && info.type !== 'cte') {
+                    let start = q.dateRange.start.replace(/-/g, '');
+                    let end = q.dateRange.end.replace(/-/g, '');
+                    if (q.baseTable === 'AD_KEYWORD') { start += '02'; end += '02'; }
+                    wheres.push(`${aliases[q.baseTable]}.${info.part} <span class="token-keyword">BETWEEN</span> '${start}' <span class="token-keyword">AND</span> '${end}'`);
                 }
 
                 const havings = [];
-                state.filters.forEach((f) => {
+                q.filters.forEach((f) => {
                     if (!f.table || !f.col) return;
-                    const aPrefix = `${state.aliases[f.table]}.${f.col}`;
+                    const aPrefix = `${aliases[f.table]}.${f.col}`;
                     let expr = `${aPrefix} ${f.op} ${f.val}`;
-                    
                     if (f.type.startsWith('HAVING')) {
-                        let hFunc = f.type.split('_')[1]; // SUM, COUNT
+                        let hFunc = f.type.split('_')[1];
                         if(f.type === 'HAVING_COUNT_DISTINCT') hFunc = 'COUNT(DISTINCT ';
                         expr = f.type === 'HAVING_COUNT_DISTINCT' ? `${hFunc}${aPrefix}) ${f.op} ${f.val}` : `${hFunc}(${aPrefix}) ${f.op} ${f.val}`;
                         havings.push({ logic: f.logic, expr });
-                    } else {
-                        wheres.push({ logic: f.logic, expr });
-                    }
+                    } else { wheres.push({ logic: f.logic, expr }); }
                 });
 
                 if (wheres.length > 0) {
                     sql += `<span class="token-keyword">WHERE</span>\n`;
-                    wheres.forEach((w, i) => {
-                        sql += `    ${i > 0 ? `<span class="token-keyword">${w.logic || 'AND'}</span> ` : ''}${typeof w === 'string' ? w : w.expr}\n`;
-                    });
+                    wheres.forEach((w, i) => { sql += `    ${i > 0 ? `<span class="token-keyword">${w.logic || 'AND'}</span> ` : ''}${typeof w === 'string' ? w : w.expr}\n`; });
                 }
 
-                // GROUP BY
-                if (groupBys.length > 0 && (state.metrics.length > 0 || selects.some(s => s.includes('COUNT') || s.includes('SUM')))) {
+                if (groupBys.length > 0 && (q.metrics.length > 0 || selects.some(s => s.includes('COUNT') || s.includes('SUM') || s.includes('AVG') || s.includes('MAX') || s.includes('MIN')))) {
                     sql += `<span class="token-keyword">GROUP BY</span>\n${groupBys.join(',\n')}\n`;
                 }
 
-                // HAVING
                 if (havings.length > 0) {
                     sql += `<span class="token-keyword">HAVING</span>\n`;
-                    havings.forEach((h, i) => {
-                        sql += `    ${i > 0 ? `<span class="token-keyword">${h.logic}</span> ` : ''}${h.expr}\n`;
-                    });
+                    havings.forEach((h, i) => { sql += `    ${i > 0 ? `<span class="token-keyword">${h.logic}</span> ` : ''}${h.expr}\n`; });
                 }
 
-                out.innerHTML = sql;
+                return sql;
+            },
+
+            indentSQL: function(sql) {
+                return sql.split('\n').map(line => '    ' + line).join('\n');
+            },
+
+            copySQL: function() {
+                const el = document.getElementById('sqlOutput');
+                const text = el.innerText || el.textContent;
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                this.showToast('SQL이 클립보드에 복사되었습니다.');
+            },
+
+            openSqlExamples: function() { document.getElementById('sqlModal').classList.remove('hidden'); },
+            closeSqlExamples: function() { document.getElementById('sqlModal').classList.add('hidden'); },
+
+            syntaxHighlightVSCode: function(sql) {
+                return sql
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/(--.*$)/gm, '<span class="token-comment">$1</span>')
+                    .replace(/('[^']*')/g, '<span class="token-string">$1</span>')
+                    .replace(/\b(\d+)\b/g, '<span class="token-number">$1</span>')
+                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|UNION|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|WITH|LIMIT)\b/gi, '<span class="token-keyword">$1</span>')
+                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER|CAST)\b/gi, '<span class="token-function">$1</span>')
+                    .replace(/(=|>|<|!=|>=|<=)/g, '<span class="token-operator">$1</span>');
+            },
+
+            parseAndRenderSqlGuide: function() {
+                const container = document.getElementById('sqlGuideContainer');
+                if(!container) return;
+                const blocks = SQL_EXAMPLES_MD.split(/\[질문 예시 \d+\]/);
+                let html = `<div class="grid grid-cols-1 gap-6 pb-10">`;
+                
+                blocks.forEach((block, index) => {
+                    if (index === 0) return; 
+                    const parts = block.split(/\[답변 Hive SQL\]/);
+                    if (parts.length >= 2) {
+                        const questionText = parts[0].trim();
+                        let sqlText = parts[1].trim().replace(/\[학습 사례 시작\]/g, '').trim();
+                        const qLines = questionText.split('\n');
+                        const title = qLines[0].trim();
+                        const desc = qLines.slice(1).join('<br>').trim();
+
+                        html += `
+                            <div class="bg-[#252526] rounded-xl shadow-lg border border-[#333] overflow-hidden flex flex-col group">
+                                <div class="px-5 py-4 border-b border-[#333] bg-[#2a2d2e]">
+                                    <div class="flex items-start gap-3">
+                                        <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded mt-0.5">예제 ${index}</span>
+                                        <h4 class="text-sm font-bold text-gray-200 leading-snug">${title}</h4>
+                                    </div>
+                                    ${desc ? `<div class="text-[12px] text-gray-400 ml-[52px] mt-2 bg-[#1e1e1e] p-3 rounded border border-[#333]">${desc}</div>` : ''}
+                                </div>
+                                <div class="relative bg-[#1e1e1e] text-[13px] font-mono leading-relaxed p-5 overflow-x-auto vscode-dark">
+                                    <button onclick="app.copyGuideText(this)" data-clipboard="${encodeURIComponent(sqlText)}" class="absolute top-3 right-3 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i class="fas fa-copy"></i> 복사
+                                    </button>
+                                    ${this.syntaxHighlightVSCode(sqlText)}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                html += `</div>`;
+                container.innerHTML = html;
+            },
+
+            copyGuideText: function(btn) {
+                const text = decodeURIComponent(btn.getAttribute('data-clipboard'));
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
+                setTimeout(() => { btn.innerHTML = original; }, 2000);
             }
         };
 
