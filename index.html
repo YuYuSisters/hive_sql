@@ -1307,7 +1307,9 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                         caseStr += `        <span class="token-keyword">ELSE</span> '<span class="token-string">${d.elseLabel || '기타'}</span>'\n    <span class="token-keyword">END</span>`;
                         const bucketAlias = `${d.col}_bucket`;
                         selects.push(`    ${caseStr} <span class="token-keyword">AS</span> ${bucketAlias}`);
-                        if (!d.bucketAgg) groupBys.push(`    ${bucketAlias}`);
+                        
+                        // [의견 반영됨] Alias 대신 CASE WHEN 원본 수식을 GROUP BY에 삽입
+                        if (!d.bucketAgg) groupBys.push(`    ${caseStr}`);
                     } else {
                         selects.push(`    ${aliasPrefix}${d.col}`);
                         groupBys.push(`    ${aliasPrefix}${d.col}`);
