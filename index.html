@@ -585,7 +585,7 @@
                 };
 
                 setupZone('dimensionsList', 'dim', (data) => {
-                    state.dimensions.push({ id: Date.now(), ...data });
+                    state.dimensions.push({ id: Date.now(), showBucket: false, buckets: [], elseLabel: '기타', ...data });
                     app.autoAddJoins();
                     app.renderDimensions();
                     app.generateSQL();
@@ -644,95 +644,155 @@
                 }
                 
                 container.innerHTML = state.dimensions.map(d => `
-                    <div class="bg-white border border-blue-200 rounded p-2 text-xs flex justify-between items-center shadow-sm fade-in">
-                        <div class="flex items-center gap-2 truncate">
-                            <i class="fas fa-grip-vertical text-gray-300"></i>
-                            <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
-                            <span class="font-bold text-gray-800">${d.col}</span>
+                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="fas fa-grip-vertical text-gray-300"></i>
+                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
+                                <span class="font-bold text-gray-800">${d.col}</span>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition" title="CASE WHEN 조건 설정">
+                                    <i class="fas fa-layer-group"></i> 구간화
+                                </button>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeDim(${d.id})"></i>
+                            </div>
                         </div>
-                        <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-2" onclick="app.removeDim(${d.id})"></i>
+                        ${d.showBucket ? `
+                            <div class="bg-gray-50 border border-gray-200 rounded p-2 mt-1">
+                                <div class="text-[10px] font-bold text-gray-600 mb-1 flex justify-between items-center">
+                                    <span><i class="fas fa-code text-blue-400 mr-1"></i>CASE WHEN 조건 설정</span>
+                                    <button onclick="app.addBucketRule(${d.id})" class="text-blue-500 hover:text-blue-700 bg-white px-1.5 py-0.5 border border-gray-200 rounded shadow-sm"><i class="fas fa-plus"></i> 추가</button>
+                                </div>
+                                <div class="space-y-1.5 mt-2">
+                                    ${d.buckets.map((b, i) => `
+                                        <div class="flex items-center gap-1 text-[10px]">
+                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">WHEN</span>
+                                            <select onchange="app.updateBucketRule(${d.id}, ${i}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
+                                                <option value=">=" ${b.op==='>='?'selected':''}>&gt;=</option>
+                                                <option value=">" ${b.op==='>'?'selected':''}>&gt;</option>
+                                                <option value="<=" ${b.op==='<='?'selected':''}>&lt;=</option>
+                                                <option value="<" ${b.op==='<'?'selected':''}>&lt;</option>
+                                                <option value="=" ${b.op==='='?'selected':''}>=</option>
+                                                <option value="!=" ${b.op==='!='?'selected':''}>!=</option>
+                                            </select>
+                                            <input type="text" value="${b.val}" onchange="app.updateBucketRule(${d.id}, ${i}, 'val', this.value)" placeholder="기준값" class="border border-gray-300 rounded outline-none p-1 w-16 font-mono focus:border-blue-500">
+                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">THEN</span>
+                                            <input type="text" value="${b.label}" onchange="app.updateBucketRule(${d.id}, ${i}, 'label', this.value)" placeholder="부여할 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                            <button onclick="app.removeBucketRule(${d.id}, ${i})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
+                                        </div>
+                                    `).join('')}
+                                    <div class="flex items-center gap-1 text-[10px] mt-2 pt-2 border-t border-gray-200">
+                                        <span class="font-bold text-gray-500 bg-gray-200 px-1 rounded">ELSE</span>
+                                        <input type="text" value="${d.elseLabel || '기타'}" onchange="app.updateBucketElse(${d.id}, this.value)" placeholder="나머지 기본 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
                     </div>
                 `).join('');
-            },
-
-            renderMetrics: function() {
-                const container = document.getElementById('metricsList');
-                if (state.metrics.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">좌측에서 컬럼을 드래그하세요</p></div>`;
-                    return;
-                }
-
-                container.innerHTML = state.metrics.map(m => `
-                    <div class="bg-white border border-green-200 rounded p-2 text-xs flex justify-between items-center shadow-sm fade-in">
-                        <div class="flex items-center gap-2 overflow-hidden">
-                            <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="bg-green-50 text-green-700 font-bold border-none text-[10px] outline-none cursor-pointer p-0.5 rounded">
-                                <option value="SUM" ${m.agg==='SUM'?'selected':''}>SUM</option>
-                                <option value="COUNT" ${m.agg==='COUNT'?'selected':''}>COUNT</option>
-                                <option value="COUNT_DISTINCT" ${m.agg==='COUNT_DISTINCT'?'selected':''}>COUNT_DIST</option>
-                                <option value="AVG" ${m.agg==='AVG'?'selected':''}>AVG</option>
-                                <option value="MAX" ${m.agg==='MAX'?'selected':''}>MAX</option>
-                            </select>
-                            <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded truncate">${m.table}</span>
-                            <span class="font-bold text-gray-800 truncate">${m.col}</span>
-                        </div>
-                        <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-2 shrink-0" onclick="app.removeMetric(${m.id})"></i>
-                    </div>
-                `).join('');
-            },
-
-            renderFilters: function() {
-                const container = document.getElementById('filterList');
-                const activeTables = this.getActiveTables();
-                
-                container.innerHTML = state.filters.map((f, i) => {
-                    let tableOpts = Array.from(activeTables).map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
-                    if(!tableOpts) tableOpts = '<option value="">테이블</option>';
-
-                    let colOpts = '<option value="">컬럼 선택</option>';
-                    if (f.table && DB_SCHEMA[f.table]) {
-                        colOpts += Object.keys(DB_SCHEMA[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('');
-                    }
-
-                    const logicSelect = i > 0 ? `
-                        <select onchange="app.updateFilter(${i}, 'logic', this.value)" class="border border-blue-300 rounded p-1.5 font-bold text-blue-700 bg-blue-50 outline-none w-20 text-center focus:border-red-500 shrink-0">
-                            <option value="AND" ${f.logic === 'AND' ? 'selected' : ''}>AND</option>
-                            <option value="OR" ${f.logic === 'OR' ? 'selected' : ''}>OR</option>
-                        </select>
-                    ` : `<span class="w-20 text-center text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 rounded py-2 px-2 shrink-0">조건(WHERE)</span>`;
-
-                    return `
-                    <div class="flex items-center gap-2 text-xs bg-gray-50 p-2 border border-gray-200 rounded shadow-sm fade-in">
-                        ${logicSelect}
-                        <select onchange="app.updateFilter(${i}, 'agg', this.value)" class="border border-gray-300 rounded p-1.5 bg-purple-50 w-28 outline-none focus:border-red-500 text-purple-700 font-bold truncate shrink-0">
-                            <option value="" ${f.agg === '' ? 'selected' : ''}>WHERE</option>
-                            <option value="SUM" ${f.agg === 'SUM' ? 'selected' : ''}>HAVING(SUM)</option>
-                            <option value="COUNT" ${f.agg === 'COUNT' ? 'selected' : ''}>HAVING(COUNT)</option>
-                            <option value="COUNT_DISTINCT" ${f.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>HAVING(COUNT_DIST)</option>
-                        </select>
-                        <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 bg-white w-24 truncate outline-none focus:border-red-500">
-                            ${tableOpts}
-                        </select>
-                        <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-32 bg-white outline-none focus:border-red-500 truncate">
-                            ${colOpts}
-                        </select>
-                        <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 font-bold text-gray-700 bg-gray-100 outline-none w-16 text-center">
-                            <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
-                            <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
-                            <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
-                            <option value="<" ${f.op === '<' ? 'selected' : ''}>&lt;</option>
-                            <option value="IN" ${f.op === 'IN' ? 'selected' : ''}>IN</option>
-                            <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
-                        </select>
-                        <input type="text" placeholder="값 (예: 'Y')" value="${f.val}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 outline-none font-mono">
-                        <button onclick="app.removeFilter(${i})" class="text-gray-400 hover:text-red-500 px-2"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                `}).join('');
             },
 
             removeDim: function(id) { state.dimensions = state.dimensions.filter(d => d.id !== id); this.renderDimensions(); this.generateSQL(); },
+            toggleBucket: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.showBucket = !d.showBucket; this.renderDimensions(); } },
+            addBucketRule: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.push({ op: '>=', val: '0', label: '그룹명' }); this.renderDimensions(); this.generateSQL(); } },
+            updateBucketRule: function(id, idx, field, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets[idx][field] = val; this.generateSQL(); } },
+            removeBucketRule: function(id, idx) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.splice(idx, 1); this.renderDimensions(); this.generateSQL(); } },
+            updateBucketElse: function(id, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.elseLabel = val; this.generateSQL(); } },
+            
+            renderMetrics: function() {
+                const container = document.getElementById('metricsList');
+                if (state.metrics.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">수치계산/카운트할 컬럼을 드래그하세요</p></div>`;
+                    return;
+                }
+                
+                container.innerHTML = state.metrics.map(m => `
+                    <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="fas fa-grip-vertical text-gray-300"></i>
+                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${m.table}</span>
+                                <span class="font-bold text-gray-800">${m.col}</span>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="text-[10px] border border-gray-200 rounded outline-none p-1 bg-white focus:border-green-500 text-green-700 font-bold">
+                                    <option value="SUM" ${m.agg === 'SUM' ? 'selected' : ''}>SUM</option>
+                                    <option value="COUNT" ${m.agg === 'COUNT' ? 'selected' : ''}>COUNT</option>
+                                    <option value="COUNT_DISTINCT" ${m.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DISTINCT)</option>
+                                    <option value="AVG" ${m.agg === 'AVG' ? 'selected' : ''}>AVG</option>
+                                    <option value="MAX" ${m.agg === 'MAX' ? 'selected' : ''}>MAX</option>
+                                    <option value="MIN" ${m.agg === 'MIN' ? 'selected' : ''}>MIN</option>
+                                </select>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
             removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
             updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
             
+            renderFilters: function() {
+                const container = document.getElementById('filterList');
+                if (!container) return;
+                
+                if (state.filters.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+                
+                const activeTables = Array.from(this.getActiveTables());
+                
+                container.innerHTML = state.filters.map((f, i) => {
+                    const tableOpts = activeTables.map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
+                    const colOpts = f.table && DB_SCHEMA[f.table] ? Object.keys(DB_SCHEMA[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('') : '<option value="">테이블 먼저 선택</option>';
+                    
+                    return `
+                    <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-sm fade-in">
+                        <div class="flex items-center gap-2 mb-2">
+                            ${i > 0 ? `
+                                <select onchange="app.updateFilter(${i}, 'logic', this.value)" class="text-xs border border-gray-300 rounded p-1.5 bg-white font-bold text-blue-600 outline-none">
+                                    <option value="AND" ${f.logic === 'AND' ? 'selected' : ''}>AND</option>
+                                    <option value="OR" ${f.logic === 'OR' ? 'selected' : ''}>OR</option>
+                                </select>
+                            ` : '<span class="text-xs font-bold text-gray-500 w-12 text-center">WHERE</span>'}
+                            
+                            <select onchange="app.updateFilter(${i}, 'agg', this.value)" class="text-[11px] border border-gray-300 rounded p-1.5 bg-white outline-none focus:border-purple-500 font-bold ${f.agg ? 'text-purple-600' : 'text-gray-600'}">
+                                <option value="" ${f.agg === '' ? 'selected' : ''}>일반 필터 (WHERE)</option>
+                                <option value="SUM" ${f.agg === 'SUM' ? 'selected' : ''}>SUM (HAVING)</option>
+                                <option value="COUNT" ${f.agg === 'COUNT' ? 'selected' : ''}>COUNT (HAVING)</option>
+                                <option value="COUNT_DISTINCT" ${f.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DIST) (HAVING)</option>
+                                <option value="AVG" ${f.agg === 'AVG' ? 'selected' : ''}>AVG (HAVING)</option>
+                            </select>
+                            
+                            <button onclick="app.removeFilter(${i})" class="ml-auto text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
+                                <option value="">테이블 선택</option>${tableOpts}
+                            </select>
+                            <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
+                                <option value="">컬럼 선택</option>${colOpts}
+                            </select>
+                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-16 text-center">
+                                <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
+                                <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
+                                <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
+                                <option value=">=" ${f.op === '>=' ? 'selected' : ''}>&gt;=</option>
+                                <option value="<" ${f.op === '<' ? 'selected' : ''}>&lt;</option>
+                                <option value="<=" ${f.op === '<=' ? 'selected' : ''}>&lt;=</option>
+                                <option value="IN" ${f.op === 'IN' ? 'selected' : ''}>IN</option>
+                                <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
+                            </select>
+                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-purple-500 font-mono text-gray-700 placeholder-gray-300" placeholder="'값'">
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            },
+
             addFilter: function() {
                 const active = Array.from(this.getActiveTables());
                 const defaultT = active.length > 0 ? active[0] : '';
@@ -1003,9 +1063,32 @@
                 let sql = `<span class="text-blue-400 font-bold">SELECT</span>\n`;
                 
                 const selects = [];
+                const groupBys = [];
+
                 state.dimensions.forEach(d => {
-                    selects.push(`    ${state.aliases[d.table]}.${d.col}`);
+                    if (d.buckets && d.buckets.length > 0) {
+                        // CASE WHEN 구문을 작성
+                        let caseSelect = `<span class="text-blue-400 font-bold">CASE</span>\n`;
+                        let caseGroup = `<span class="text-blue-400 font-bold">CASE</span> `;
+                        
+                        d.buckets.forEach(b => {
+                            caseSelect += `        <span class="text-blue-400 font-bold">WHEN</span> ${state.aliases[d.table]}.${d.col} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '${b.label}'\n`;
+                            caseGroup += `<span class="text-blue-400 font-bold">WHEN</span> ${state.aliases[d.table]}.${d.col} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '${b.label}' `;
+                        });
+                        
+                        caseSelect += `        <span class="text-blue-400 font-bold">ELSE</span> '${d.elseLabel || '기타'}'\n`;
+                        caseSelect += `    <span class="text-blue-400 font-bold">END</span>`;
+                        caseGroup += `<span class="text-blue-400 font-bold">ELSE</span> '${d.elseLabel || '기타'}' <span class="text-blue-400 font-bold">END</span>`;
+
+                        selects.push(`    ${caseSelect} <span class="text-blue-300">AS</span> ${d.col}_bucket`);
+                        groupBys.push(`    ${caseGroup}`);
+                    } else {
+                        // 일반 컬럼
+                        selects.push(`    ${state.aliases[d.table]}.${d.col}`);
+                        groupBys.push(`    ${state.aliases[d.table]}.${d.col}`);
+                    }
                 });
+
                 state.metrics.forEach(m => {
                     if (m.agg === 'COUNT_DISTINCT') {
                         selects.push(`    <span class="text-green-400">COUNT</span>(<span class="text-green-400">DISTINCT</span> ${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> count_dist_${m.col}`);
@@ -1098,9 +1181,8 @@
                     });
                 }
 
-                if (state.dimensions.length > 0 && state.metrics.length > 0) {
-                    const groups = state.dimensions.map((d, i) => i + 1).join(', ');
-                    sql += `<span class="text-blue-400 font-bold">GROUP BY</span> ${groups}\n`;
+                if (groupBys.length > 0 && state.metrics.length > 0) {
+                    sql += `<span class="text-blue-400 font-bold">GROUP BY</span>\n${groupBys.join(',\n')}\n`;
                 }
 
                 if (havingFilters.length > 0) {
