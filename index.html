@@ -815,15 +815,15 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                         if(isNum) { icon = 'fa-hashtag text-green-500'; badge='NUM'; }
 
                         html += `
-                                <div class="px-3 py-1.5 pl-7 text-[10px] border-t border-gray-50 flex justify-between items-center group cursor-grab hover:bg-red-50 transition schema-col"
+                                <div class="px-3 py-1.5 pl-7 text-[10px] border-t border-gray-50 flex justify-between items-center group cursor-grab hover:bg-red-50 transition schema-col select-none"
                                      data-name="${colName.toLowerCase()}"
                                      draggable="true" 
                                      ondragstart="app.handleDragStart(event, '${tableName}', '${colName}', '${isNum ? 'metric' : 'dim'}')">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 pointer-events-none">
                                         <i class="fas ${icon}"></i>
                                         <span class="font-medium text-gray-600 group-hover:text-red-700">${colName}</span>
                                     </div>
-                                    ${badge ? `<span class="text-[8px] bg-gray-100 text-gray-400 px-1 rounded">${badge}</span>` : ''}
+                                    ${badge ? `<span class="text-[8px] bg-gray-100 text-gray-400 px-1 rounded pointer-events-none">${badge}</span>` : ''}
                                 </div>
                         `;
                     });
@@ -872,22 +872,36 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
             },
 
             handleDragStart: function(e, table, col, type) {
-                dragItemData = { table, col, type };
+                const data = { table, col, type };
+                // HTML5 표준 Drag Data API 사용 (데이터 유실 방지)
+                e.dataTransfer.setData('application/json', JSON.stringify(data));
                 e.dataTransfer.effectAllowed = 'copy';
+                window.dragItemFallback = data; // 모바일/예외상황 대비 폴백
             },
 
             setupDragAndDrop: function() {
                 const setupZone = (id, acceptCallback) => {
                     const zone = document.getElementById(id);
-                    zone.addEventListener('dragover', (e) => {
+                    
+                    zone.addEventListener('dragenter', (e) => {
                         e.preventDefault();
-                        if (!state.baseTable) return;
-                        zone.classList.add('drag-over');
+                        if (state.baseTable) zone.classList.add('drag-over');
                     });
+
+                    zone.addEventListener('dragover', (e) => {
+                        e.preventDefault(); // 드롭 허용을 위해 필수
+                        e.dataTransfer.dropEffect = 'copy';
+                        if (state.baseTable) zone.classList.add('drag-over');
+                    });
+                    
                     zone.addEventListener('dragleave', (e) => {
                         e.preventDefault();
-                        zone.classList.remove('drag-over');
+                        // 자식 요소로 드래그가 넘어갈 때 깜빡임(드롭 실패) 방지
+                        if (!zone.contains(e.relatedTarget)) {
+                            zone.classList.remove('drag-over');
+                        }
                     });
+                    
                     zone.addEventListener('drop', (e) => {
                         e.preventDefault();
                         zone.classList.remove('drag-over');
@@ -895,10 +909,17 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                             showToast('먼저 STEP 1의 기준 테이블(Base Table)을 선택해 주세요.', true);
                             return;
                         }
-                        if (dragItemData) {
-                            acceptCallback(dragItemData);
-                            this.autoAddJoinPath(dragItemData.table);
-                            dragItemData = null;
+                        
+                        try {
+                            const jsonData = e.dataTransfer.getData('application/json');
+                            const data = jsonData ? JSON.parse(jsonData) : window.dragItemFallback;
+                            if (data) {
+                                acceptCallback(data);
+                                this.autoAddJoinPath(data.table);
+                                window.dragItemFallback = null;
+                            }
+                        } catch(err) {
+                            console.error('Drag & Drop Parsing Error:', err);
                         }
                     });
                 };
