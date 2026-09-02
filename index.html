@@ -93,7 +93,7 @@
                 <!-- Dimensions & Metrics -->
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Dimensions (Group By) -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72">
                         <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
                             <i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions)
                         </h2>
@@ -109,11 +109,16 @@
                     </div>
 
                     <!-- Metrics (Aggregations) -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
-                        <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
-                            <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
-                        </h2>
-                        <p class="text-[10px] text-gray-400 mb-3">합계, 평균 등을 계산할 값 (예: 클릭수, 거래액)</p>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72">
+                        <div class="flex justify-between items-center mb-1">
+                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
+                            </h2>
+                            <button onclick="app.addCalcMetric()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1.5 rounded border border-green-200 hover:bg-green-100 font-bold transition">
+                                <i class="fas fa-plus mr-1"></i>수식 추가
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mb-3">수치계산할 값이나 연산식 생성</p>
                         
                         <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2">
                             <!-- Items injected here -->
@@ -125,12 +130,7 @@
                     </div>
                 </div>
 
-                <!-- 조인 설정 (Join Configuration) - 추가됨 -->
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm" id="joinConfigSection" style="display: none;">
-                    <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                        <i class="fas fa-link text-blue-500"></i> 조인 조건 설정 (Join Configuration)
-                    </h2>
-                    <p class="text-[10px] text-gray-400 mb-3">자동 탐색된 조인 키를 직접 변경할 수 있습니다.</p>
+                <!-- 조인 설정 (Join Configuration) -->
                     <div id="joinConfigList" class="space-y-2 flex flex-col gap-2">
                         <!-- Joins injected here -->
                     </div>
@@ -819,231 +819,161 @@
                 const tables = new Set();
                 if (state.baseTable) tables.add(state.baseTable);
                 state.dimensions.forEach(d => tables.add(d.table));
-                state.metrics.forEach(m => tables.add(m.table));
+                state.metrics.forEach(m => {
+                    if (m.isCalc) {
+                        Object.keys(DB_SCHEMA).forEach(t => {
+                            if (m.formula && m.formula.includes(t + '.')) tables.add(t);
+                        });
+                    } else {
+                        tables.add(m.table);
+                    }
+                });
                 state.filters.forEach(f => { if(f.table) tables.add(f.table); });
                 return tables;
             },
 
-            // 2. 조인 테이블 및 컬럼 직접 관리 기능
-            autoAddJoins: function() {
-                if (!state.baseTable) return;
-                const activeTables = this.getActiveTables();
-                const joinedTables = new Set([state.baseTable]);
-                
-                state.joins.forEach(j => {
-                    if (j.from) joinedTables.add(j.from);
-                    if (j.to) joinedTables.add(j.to);
-                });
+            addCalcMetric: function() {
+                state.metrics.push({ id: Date.now(), isCalc: true, formula: '', alias: 'new_metric' });
+                this.renderMetrics();
+                this.generateSQL();
+            },
 
-                const targets = Array.from(activeTables).filter(t => !joinedTables.has(t) && t !== state.baseTable);
-                if (targets.length === 0) return;
+            updateCalcMetric: function(id, field, val) {
+                const m = state.metrics.find(x => x.id === id);
+                if (m) m[field] = val;
+                this.autoAddJoins();
+                this.generateSQL();
+            },
+            
+            updateBucketAgg: function(id, val) {
+                const d = state.dimensions.find(x => x.id === id);
+                if(d) { d.bucketAgg = val; this.generateSQL(); }
+            },
 
-                // ERD BFS 탐색하여 없는 조인만 추가
-                for (const target of targets) {
-                    if (joinedTables.has(target)) continue;
-                    
-                    const queue = [[state.baseTable]];
-                    const visited = new Set([state.baseTable]);
-                    let pathFound = null;
-
-                    while (queue.length > 0) {
-                        const path = queue.shift();
-                        const current = path[path.length - 1];
-
-                        if (current === target) {
-                            pathFound = path;
-                            break;
-                        }
-
-                        const neighbors = ERD_GRAPH[current] || [];
-                        for (const neighbor of neighbors) {
-                            if (!visited.has(neighbor.target)) {
-                                visited.add(neighbor.target);
-                                queue.push([...path, neighbor.target]);
-                            }
-                        }
-                    }
-
-                    if (pathFound) {
-                        for (let i = 0; i < pathFound.length - 1; i++) {
-                            const from = pathFound[i];
-                            const to = pathFound[i+1];
-                            if (!joinedTables.has(to)) {
-                                const rule = ERD_GRAPH[from].find(r => r.target === to);
-                                state.joins.push({
-                                    id: 'join_' + Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                                    type: 'LEFT JOIN',
-                                    from: from,
-                                    to: to,
-                                    conditions: [ [...rule.on] ]
-                                });
-                                joinedTables.add(to);
-                            }
-                        }
-                    } else {
-                        console.warn(`Warning: No ERD path found from ${state.baseTable} to ${target}`);
-                    }
+            renderDimensions: function() {
+                const container = document.getElementById('dimensionsList');
+                if (state.dimensions.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">좌측에서 컬럼을 드래그하세요</p></div>`;
+                    return;
                 }
                 
-                this.renderJoinsUI();
-            },
-
-            addJoin: function() {
-                state.joins.push({
-                    id: 'join_' + Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                    type: 'LEFT JOIN',
-                    from: state.baseTable || '',
-                    to: '',
-                    conditions: [['', '']]
-                });
-                this.renderJoinsUI();
-                this.generateSQL();
-            },
-
-            removeJoin: function(id) {
-                state.joins = state.joins.filter(j => j.id !== id);
-                this.renderJoinsUI();
-                this.generateSQL();
-            },
-
-            updateJoinProp: function(id, prop, val) {
-                const join = state.joins.find(j => j.id === id);
-                if (join) {
-                    join[prop] = val;
-                    if (prop === 'from' || prop === 'to') {
-                        join.conditions = [['', '']]; // 테이블 변경 시 조건 초기화
-                    }
-                }
-                this.renderJoinsUI();
-                this.generateSQL();
-            },
-
-            addJoinCond: function(id) {
-                const join = state.joins.find(j => j.id === id);
-                if (join) {
-                    join.conditions.push(['', '']);
-                }
-                this.renderJoinsUI();
-                this.generateSQL();
-            },
-
-            removeJoinCond: function(id, idx) {
-                const join = state.joins.find(j => j.id === id);
-                if (join && join.conditions.length > 1) {
-                    join.conditions.splice(idx, 1);
-                }
-                this.renderJoinsUI();
-                this.generateSQL();
-            },
-
-            updateJoinCond: function(id, idx, side, val) {
-                const join = state.joins.find(j => j.id === id);
-                if (join) {
-                    join.conditions[idx][side] = val;
-                }
-                this.generateSQL();
-            },
-
-            renderJoinsUI: function() {
-                const section = document.getElementById('joinConfigSection');
-                const container = document.getElementById('joinConfigList');
-                const statusDiv = document.getElementById('joinStatus');
-
-                // Update UI frame
-                document.getElementById('joinConfigSection').outerHTML = `
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm" id="joinConfigSection" style="display: ${(!state.baseTable && state.joins.length === 0) ? 'none' : 'block'};">
-                        <div class="flex justify-between items-center mb-3 border-b border-gray-100 pb-3">
-                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-link text-blue-500"></i> 조인 조건 설정 (Join Configuration)
-                            </h2>
-                            <button onclick="app.addJoin()" class="text-[11px] bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 font-bold transition flex items-center shadow-sm">
-                                <i class="fas fa-plus mr-1"></i> 조인 테이블 추가
-                            </button>
-                        </div>
-                        <p class="text-[10px] text-gray-400 mb-3 leading-relaxed">테이블을 필터나 측정값에 드래그하면 ERD를 바탕으로 조인이 자동 생성됩니다.<br>필요한 경우 아래에서 조인 대상 테이블과 조건을 직접 선택하여 자유롭게 수정하세요.</p>
-                        <div id="joinConfigList" class="space-y-3 flex flex-col">
-                            <!-- Joins injected here -->
-                        </div>
-                    </div>
-                `;
-                
-                const newContainer = document.getElementById('joinConfigList');
-                let pathsLog = [];
-                const allTables = Object.keys(DB_SCHEMA);
-                const tableOptions = (selected) => allTables.map(t => `<option value="${t}" ${t===selected?'selected':''}>${t}</option>`).join('');
-
-                newContainer.innerHTML = state.joins.map((j, index) => {
-                    pathsLog.push(`${j.from || '?'} <i class="fas fa-arrow-right mx-1 text-gray-600"></i> ${j.to || '?'}`);
-
-                    let joinHtml = `<div class="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm relative fade-in">`;
-                    
-                    joinHtml += `<button onclick="app.removeJoin('${j.id}')" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 bg-white rounded p-1 shadow-sm"><i class="fas fa-trash-alt"></i></button>`;
-
-                    joinHtml += `
-                        <div class="flex items-center gap-2 mb-3 pr-8">
-                            <select onchange="app.updateJoinProp('${j.id}', 'type', this.value)" class="text-xs border border-purple-300 rounded p-2 font-bold text-purple-700 bg-purple-50 outline-none focus:ring-2 focus:ring-purple-200">
-                                <option value="LEFT JOIN" ${j.type === 'LEFT JOIN' ? 'selected' : ''}>LEFT JOIN</option>
-                                <option value="INNER JOIN" ${j.type === 'INNER JOIN' ? 'selected' : ''}>INNER JOIN</option>
-                                <option value="RIGHT JOIN" ${j.type === 'RIGHT JOIN' ? 'selected' : ''}>RIGHT JOIN</option>
-                                <option value="UNION ALL" ${j.type === 'UNION ALL' ? 'selected' : ''}>UNION ALL</option>
-                            </select>
-                            <select onchange="app.updateJoinProp('${j.id}', 'from', this.value)" class="text-xs font-bold border border-gray-300 rounded p-2 flex-1 bg-white outline-none focus:border-blue-500">
-                                <option value="">기준 테이블 선택</option>
-                                ${tableOptions(j.from)}
-                            </select>
-                            <i class="fas fa-link text-gray-400 text-sm"></i>
-                            <select onchange="app.updateJoinProp('${j.id}', 'to', this.value)" class="text-xs font-bold border border-gray-300 rounded p-2 flex-1 bg-white outline-none focus:border-blue-500">
-                                <option value="">조인 대상 테이블 선택</option>
-                                ${tableOptions(j.to)}
-                            </select>
-                        </div>
-                    `;
-
-                    if (j.type !== 'UNION ALL') {
-                        joinHtml += `<div class="space-y-2 bg-white p-3 rounded border border-gray-100">`;
-                        j.conditions.forEach((cond, idx) => {
-                            const fromCols = j.from ? Object.keys(DB_SCHEMA[j.from].cols).map(c => `<option value="${c}" ${cond[0] === c ? 'selected' : ''}>${c}</option>`).join('') : '';
-                            const toCols = j.to ? Object.keys(DB_SCHEMA[j.to].cols).map(c => `<option value="${c}" ${cond[1] === c ? 'selected' : ''}>${c}</option>`).join('') : '';
-
-                            joinHtml += `
-                                <div class="flex items-center gap-2 text-xs">
-                                    ${idx > 0 ? '<span class="text-[10px] font-bold text-purple-600 w-8 text-center bg-purple-100 rounded px-1 py-0.5">AND</span>' : '<span class="w-8 text-[11px] font-bold text-gray-500 text-center">ON</span>'}
-                                    <select onchange="app.updateJoinCond('${j.id}', ${idx}, 0, this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-red-500 text-gray-700">
-                                        <option value="">컬럼 선택</option>${fromCols}
-                                    </select>
-                                    <span class="font-bold text-gray-400">=</span>
-                                    <select onchange="app.updateJoinCond('${j.id}', ${idx}, 1, this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-red-500 text-gray-700">
-                                        <option value="">컬럼 선택</option>${toCols}
-                                    </select>
-                                    <button onclick="app.removeJoinCond('${j.id}', ${idx})" class="text-gray-400 hover:text-red-500 px-1 ml-1" title="조건 삭제"><i class="fas fa-times"></i></button>
-                                </div>
-                            `;
-                        });
-                        joinHtml += `
-                            <div class="pt-1">
-                                <button onclick="app.addJoinCond('${j.id}')" class="text-[10px] bg-gray-50 text-gray-600 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 font-medium transition flex items-center">
-                                    <i class="fas fa-plus mr-1"></i> 조건 추가
-                                </button>
+                container.innerHTML = state.dimensions.map(d => `
+                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="fas fa-grip-vertical text-gray-300"></i>
+                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
+                                <span class="font-bold text-gray-800">${d.col}</span>
                             </div>
-                        `;
-                        joinHtml += `</div>`;
-                    }
-
-                    joinHtml += `</div>`;
-                    return joinHtml;
-                }).join('');
-
-                const newStatusDiv = document.getElementById('joinStatus');
-                if(newStatusDiv) {
-                     newStatusDiv.innerHTML = pathsLog.length > 0 ? pathsLog.map(p => `<div><i class="fas fa-check text-green-500 mr-1"></i> ${p}</div>`).join('') : '추가된 조인 없음';
-                }
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition" title="CASE WHEN 조건 설정">
+                                    <i class="fas fa-layer-group"></i> 구간화
+                                </button>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeDim(${d.id})"></i>
+                            </div>
+                        </div>
+                        ${d.showBucket ? `
+                            <div class="bg-gray-50 border border-gray-200 rounded p-2 mt-1">
+                                <div class="text-[10px] font-bold text-gray-600 mb-1 flex justify-between items-center">
+                                    <div class="flex items-center gap-1">
+                                        <i class="fas fa-code text-blue-400"></i> 조건 
+                                        <select onchange="app.updateBucketAgg(${d.id}, this.value)" class="ml-1 text-[9px] border border-blue-300 rounded outline-none bg-white focus:border-blue-500 font-bold text-blue-700">
+                                            <option value="" ${!d.bucketAgg ? 'selected' : ''}>일반조건</option>
+                                            <option value="SUM" ${d.bucketAgg === 'SUM' ? 'selected' : ''}>SUM()</option>
+                                            <option value="AVG" ${d.bucketAgg === 'AVG' ? 'selected' : ''}>AVG()</option>
+                                            <option value="COUNT" ${d.bucketAgg === 'COUNT' ? 'selected' : ''}>COUNT()</option>
+                                            <option value="MAX" ${d.bucketAgg === 'MAX' ? 'selected' : ''}>MAX()</option>
+                                            <option value="MIN" ${d.bucketAgg === 'MIN' ? 'selected' : ''}>MIN()</option>
+                                        </select>
+                                    </div>
+                                    <button onclick="app.addBucketRule(${d.id})" class="text-blue-500 hover:text-blue-700 bg-white px-1.5 py-0.5 border border-gray-200 rounded shadow-sm"><i class="fas fa-plus"></i> 추가</button>
+                                </div>
+                                <div class="space-y-1.5 mt-2">
+                                    ${d.buckets.map((b, i) => `
+                                        <div class="flex items-center gap-1 text-[10px]">
+                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">WHEN</span>
+                                            <select onchange="app.updateBucketRule(${d.id}, ${i}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
+                                                <option value=">=" ${b.op==='>='?'selected':''}>&gt;=</option>
+                                                <option value=">" ${b.op==='>'?'selected':''}>&gt;</option>
+                                                <option value="<=" ${b.op==='<='?'selected':''}>&lt;=</option>
+                                                <option value="<" ${b.op==='<'?'selected':''}>&lt;</option>
+                                                <option value="=" ${b.op==='='?'selected':''}>=</option>
+                                                <option value="!=" ${b.op==='!='?'selected':''}>!=</option>
+                                            </select>
+                                            <input type="text" value="${b.val}" onchange="app.updateBucketRule(${d.id}, ${i}, 'val', this.value)" placeholder="기준값" class="border border-gray-300 rounded outline-none p-1 w-12 font-mono focus:border-blue-500">
+                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">THEN</span>
+                                            <input type="text" value="${b.label}" onchange="app.updateBucketRule(${d.id}, ${i}, 'label', this.value)" placeholder="부여할 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                            <button onclick="app.removeBucketRule(${d.id}, ${i})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
+                                        </div>
+                                    `).join('')}
+                                    <div class="flex items-center gap-1 text-[10px] mt-2 pt-2 border-t border-gray-200">
+                                        <span class="font-bold text-gray-500 bg-gray-200 px-1 rounded">ELSE</span>
+                                        <input type="text" value="${d.elseLabel || '기타'}" onchange="app.updateBucketElse(${d.id}, this.value)" placeholder="나머지 기본 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
             },
+
+            renderMetrics: function() {
+                const container = document.getElementById('metricsList');
+                if (state.metrics.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">수치계산/카운트할 컬럼을 드래그하세요</p></div>`;
+                    return;
+                }
+                
+                container.innerHTML = state.metrics.map(m => {
+                    if (m.isCalc) {
+                        return `
+                        <div class="bg-green-50 border border-green-300 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="font-bold text-green-800"><i class="fas fa-square-root-alt mr-1"></i> 수식 연산 (Calculated)</span>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                            </div>
+                            <div class="flex flex-col gap-1.5 text-xs">
+                                <input type="text" value="${m.formula.replace(/"/g, '&quot;')}" onchange="app.updateCalcMetric(${m.id}, 'formula', this.value)" placeholder="예: SUM(AD_FEE.cash_amount) / SUM(AD_IMPRESSION.click)" class="border border-green-300 rounded p-1.5 w-full outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400 shadow-inner">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-green-700 bg-green-200 px-1.5 py-0.5 rounded text-[10px]">AS</span>
+                                    <input type="text" value="${m.alias}" onchange="app.updateCalcMetric(${m.id}, 'alias', this.value)" placeholder="결과컬럼명" class="border border-green-300 rounded p-1.5 flex-1 outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400">
+                                </div>
+                            </div>
+                        </div>`;
+                    } else {
+                        return `
+                        <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <div class="flex items-center gap-2 truncate">
+                                    <i class="fas fa-grip-vertical text-gray-300"></i>
+                                    <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${m.table}</span>
+                                    <span class="font-bold text-gray-800">${m.col}</span>
+                                </div>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="text-[10px] border border-gray-200 rounded outline-none p-1 bg-white focus:border-green-500 text-green-700 font-bold">
+                                        <option value="SUM" ${m.agg === 'SUM' ? 'selected' : ''}>SUM</option>
+                                        <option value="COUNT" ${m.agg === 'COUNT' ? 'selected' : ''}>COUNT</option>
+                                        <option value="COUNT_DISTINCT" ${m.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DISTINCT)</option>
+                                        <option value="AVG" ${m.agg === 'AVG' ? 'selected' : ''}>AVG</option>
+                                        <option value="MAX" ${m.agg === 'MAX' ? 'selected' : ''}>MAX</option>
+                                        <option value="MIN" ${m.agg === 'MIN' ? 'selected' : ''}>MIN</option>
+                                    </select>
+                                    <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                }).join('');
+            },
+
+            removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
+            updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
 
             generateSQL: function() {
                 const out = document.getElementById('sqlOutput');
                 
                 if (!state.baseTable) {
-                    out.innerHTML = `<span class="text-gray-500">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="text-blue-400 font-bold">SELECT</span> \n    * \n<span class="text-blue-400 font-bold">FROM</span> dual;`;
+                    out.innerHTML = `<span style="color: #6A9955; font-style: italic;">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span style="color: #569CD6; font-weight: bold;">SELECT</span> \n    * \n<span style="color: #569CD6; font-weight: bold;">FROM</span> dual;`;
                     const statusDiv = document.getElementById('joinStatus');
                     if (statusDiv) statusDiv.innerHTML = '대기 중... (테이블을 추가하세요)';
                     return;
@@ -1065,35 +995,55 @@
                 const selects = [];
                 const groupBys = [];
 
+                // 1. Dimensions 생성 (구간화 및 일반)
                 state.dimensions.forEach(d => {
                     if (d.buckets && d.buckets.length > 0) {
-                        // CASE WHEN 구문을 작성
                         let caseSelect = `<span class="text-blue-400 font-bold">CASE</span>\n`;
                         let caseGroup = `<span class="text-blue-400 font-bold">CASE</span> `;
                         
+                        let colExpr = d.bucketAgg ? `<span class="text-green-400">${d.bucketAgg}</span>(${state.aliases[d.table]}.${d.col})` : `${state.aliases[d.table]}.${d.col}`;
+                        let colExprRaw = d.bucketAgg ? `${d.bucketAgg}(${state.aliases[d.table]}.${d.col})` : `${state.aliases[d.table]}.${d.col}`;
+
                         d.buckets.forEach(b => {
-                            caseSelect += `        <span class="text-blue-400 font-bold">WHEN</span> ${state.aliases[d.table]}.${d.col} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '${b.label}'\n`;
-                            caseGroup += `<span class="text-blue-400 font-bold">WHEN</span> ${state.aliases[d.table]}.${d.col} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '${b.label}' `;
+                            caseSelect += `        <span class="text-blue-400 font-bold">WHEN</span> ${colExpr} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '<span class="text-orange-300">${b.label}</span>'\n`;
+                            caseGroup += `<span class="text-blue-400 font-bold">WHEN</span> ${colExprRaw} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '${b.label}' `;
                         });
                         
-                        caseSelect += `        <span class="text-blue-400 font-bold">ELSE</span> '${d.elseLabel || '기타'}'\n`;
+                        caseSelect += `        <span class="text-blue-400 font-bold">ELSE</span> '<span class="text-orange-300">${d.elseLabel || '기타'}</span>'\n`;
                         caseSelect += `    <span class="text-blue-400 font-bold">END</span>`;
                         caseGroup += `<span class="text-blue-400 font-bold">ELSE</span> '${d.elseLabel || '기타'}' <span class="text-blue-400 font-bold">END</span>`;
 
-                        selects.push(`    ${caseSelect} <span class="text-blue-300">AS</span> ${d.col}_bucket`);
-                        groupBys.push(`    ${caseGroup}`);
+                        selects.push(`    ${caseSelect} <span class="text-blue-300 font-bold">AS</span> ${d.col}_bucket`);
+                        
+                        // 집계 함수(SUM 등)가 구간화에 사용된 경우 GROUP BY에서 제외
+                        if (!d.bucketAgg) {
+                            groupBys.push(`    ${caseGroup}`);
+                        }
                     } else {
-                        // 일반 컬럼
                         selects.push(`    ${state.aliases[d.table]}.${d.col}`);
                         groupBys.push(`    ${state.aliases[d.table]}.${d.col}`);
                     }
                 });
 
+                // 2. Metrics 생성 (일반 및 수식 연산)
                 state.metrics.forEach(m => {
-                    if (m.agg === 'COUNT_DISTINCT') {
-                        selects.push(`    <span class="text-green-400">COUNT</span>(<span class="text-green-400">DISTINCT</span> ${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> count_dist_${m.col}`);
+                    if (m.isCalc) {
+                        // 사용자가 입력한 수식 내 테이블명을 Alias로 치환
+                        let parsedFormula = m.formula;
+                        Object.keys(state.aliases).forEach(tName => {
+                            const regex = new RegExp(`\\b${tName}\\.`, 'g');
+                            parsedFormula = parsedFormula.replace(regex, `${state.aliases[tName]}.`);
+                        });
+                        // 함수 하이라이팅 적용
+                        parsedFormula = parsedFormula.replace(/\b(SUM|COUNT|AVG|MAX|MIN|IFNULL|COALESCE)\b/gi, '<span class="text-green-400">$1</span>');
+                        
+                        selects.push(`    ${parsedFormula} <span class="text-blue-300 font-bold">AS</span> ${m.alias}`);
                     } else {
-                        selects.push(`    <span class="text-green-400">${m.agg}</span>(${state.aliases[m.table]}.${m.col}) <span class="text-blue-300">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
+                        if (m.agg === 'COUNT_DISTINCT') {
+                            selects.push(`    <span class="text-green-400">COUNT</span>(<span class="text-blue-400 font-bold">DISTINCT</span> ${state.aliases[m.table]}.${m.col}) <span class="text-blue-300 font-bold">AS</span> count_dist_${m.col}`);
+                        } else {
+                            selects.push(`    <span class="text-green-400">${m.agg}</span>(${state.aliases[m.table]}.${m.col}) <span class="text-blue-300 font-bold">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
+                        }
                     }
                 });
 
@@ -1106,6 +1056,7 @@
                 const baseDb = DB_SCHEMA[state.baseTable].db;
                 sql += `<span class="text-blue-400 font-bold">FROM</span> ${baseDb} ${state.aliases[state.baseTable]}\n`;
 
+                // 3. 조인 생성
                 state.joins.forEach(j => {
                     if (!j.from || !j.to) return; 
                     const joinType = j.type || 'LEFT JOIN';
