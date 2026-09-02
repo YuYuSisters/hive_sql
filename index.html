@@ -13,21 +13,25 @@
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         .sql-font { font-family: 'Fira Code', monospace; }
         
-        /* Custom scrollbar for webkit */
+        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ef4444; }
 
-        /* Animation classes */
         .fade-in { animation: fadeIn 0.2s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Drag & Drop highlights */
         .drag-over { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
-        
-        /* SQL Guide Styles */
-        .guide-sql-block { font-family: 'Fira Code', monospace; line-height: 1.6; }
+
+        /* VS Code Dark Theme Styles for SQL Guide */
+        .vscode-dark { background-color: #1e1e1e; color: #d4d4d4; }
+        .token-comment { color: #6A9955; font-style: italic; }
+        .token-string { color: #CE9178; }
+        .token-number { color: #B5CEA8; }
+        .token-keyword { color: #569CD6; font-weight: bold; }
+        .token-function { color: #DCDCAA; }
+        .token-operator { color: #d4d4d4; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-gray-800">
@@ -35,13 +39,13 @@
     <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center z-20 shadow-sm shrink-0">
         <div class="flex items-center gap-3">
             <div class="bg-red-600 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-md shadow-red-200">
-                <i class="fas fa-chart-pie text-lg"></i>
+                <i class="fas fa-database text-lg"></i>
             </div>
             <h1 class="font-bold text-lg text-gray-800 tracking-tight">11st Ad Data <span class="text-red-600 font-black">Query Builder</span></h1>
         </div>
         <div class="flex gap-3 items-center">
-            <button onclick="app.openSqlExamples()" class="px-4 py-2 bg-blue-50 border border-blue-200 text-blue-600 rounded-md text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2 shadow-sm">
-                <i class="fas fa-book-open"></i> SQL 작성 가이드
+            <button onclick="app.openSqlExamples()" class="px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-md text-sm font-bold hover:bg-slate-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-book-open text-blue-400"></i> SQL 작성 가이드
             </button>
             <button onclick="app.reset()" class="px-4 py-2 border border-gray-300 text-gray-600 rounded-md text-sm font-medium hover:bg-gray-50 transition flex items-center gap-2">
                 <i class="fas fa-undo"></i> 초기화
@@ -54,19 +58,18 @@
 
     <main class="flex-1 flex overflow-hidden">
         
-        <!-- Left Sidebar: Data Schema Explorer -->
-        <aside class="w-72 border-r border-gray-200 bg-white flex flex-col h-full shrink-0 z-10 shadow-sm">
+        <aside class="w-72 border-r border-gray-200 bg-white flex flex-col h-full shrink-0 z-10 shadow-sm relative">
             <div class="p-4 border-b border-gray-100">
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                    <input type="text" id="searchInput" placeholder="테이블/컬럼 검색..." 
+                    <input type="text" id="searchInput" onkeyup="app.filterSchema()" placeholder="테이블/컬럼 검색..." 
                            class="w-full text-sm border border-gray-300 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all">
                 </div>
             </div>
             
-            <div class="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+            <div class="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center shadow-inner">
                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Data Dictionary</span>
-                <i class="fas fa-database text-gray-400"></i>
+                <i class="fas fa-sitemap text-gray-400"></i>
             </div>
 
             <div class="flex-1 overflow-y-auto p-2 space-y-1" id="schemaExplorer">
@@ -74,70 +77,88 @@
             </div>
         </aside>
 
-        <!-- Center Panel: Query Builder (Data & Filters) -->
-        <div class="flex-1 flex flex-col min-w-0 bg-gray-50/50 overflow-y-auto border-r border-gray-200">
+        <div class="flex-1 flex flex-col min-w-0 bg-gray-50/50 overflow-y-auto border-r border-gray-200 relative">
             <div class="max-w-4xl w-full mx-auto p-6 space-y-6">
                 
                 <!-- Base Table Selection -->
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
+                    <div class="absolute -left-2 -top-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 1</div>
                     <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                         <i class="fas fa-layer-group text-red-500"></i> 기준 데이터 (Base Table)
                     </h2>
-                    <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-shadow bg-gray-50 hover:bg-white cursor-pointer">
+                    <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-shadow bg-gray-50 hover:bg-white cursor-pointer text-gray-700">
                         <option value="">데이터 마트를 선택하세요 (필수)</option>
                         <!-- Options injected via JS -->
                     </select>
-                    <p class="text-[11px] text-gray-500 mt-2 ml-1"><i class="fas fa-info-circle"></i> 분석의 중심이 되는 메인 로그나 마스터 테이블을 먼저 선택하세요. 나머지 테이블은 자동 조인됩니다.</p>
+                    <p class="text-[11px] text-gray-500 mt-2 ml-1"><i class="fas fa-info-circle"></i> 분석의 중심이 되는 메인 로그나 팩트 테이블을 선택하세요.</p>
                 </div>
 
                 <!-- Dimensions & Metrics -->
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-4 relative">
+                    <div class="absolute -left-2 -top-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">STEP 2</div>
+                    
                     <!-- Dimensions (Group By) -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72">
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
                         <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
                             <i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions)
                         </h2>
-                        <p class="text-[10px] text-gray-400 mb-3">데이터를 그룹화할 기준 (예: 일자, 캠페인명)</p>
+                        <p class="text-[10px] text-gray-400 mb-3">데이터를 그룹화할 기준 컬럼을 드래그하세요</p>
                         
-                        <div id="dimensionsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2">
-                            <!-- Items injected here -->
-                            <div class="empty-state m-auto text-center text-gray-400">
-                                <i class="fas fa-mouse-pointer mb-2 text-lg"></i>
-                                <p class="text-xs">좌측에서 컬럼을 추가하세요</p>
+                        <div id="dimensionsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
+                            <div class="empty-state m-auto text-center text-gray-400 pointer-events-none">
+                                <i class="fas fa-hand-rock mb-2 text-lg"></i>
+                                <p class="text-xs">Drag & Drop</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Metrics (Aggregations) -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72">
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
                         <div class="flex justify-between items-center mb-1">
                             <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
                             </h2>
-                            <button onclick="app.addCalcMetric()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1.5 rounded border border-green-200 hover:bg-green-100 font-bold transition">
+                            <button onclick="app.addCalcMetric()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded border border-green-200 hover:bg-green-100 font-bold transition">
                                 <i class="fas fa-plus mr-1"></i>수식 추가
                             </button>
                         </div>
-                        <p class="text-[10px] text-gray-400 mb-3">수치계산할 값이나 연산식 생성</p>
+                        <p class="text-[10px] text-gray-400 mb-3">수치계산할 컬럼을 드래그하세요</p>
                         
-                        <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2">
-                            <!-- Items injected here -->
-                            <div class="empty-state m-auto text-center text-gray-400">
-                                <i class="fas fa-mouse-pointer mb-2 text-lg"></i>
-                                <p class="text-xs">수치계산/카운트할 컬럼을 드래그하세요</p>
+                        <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
+                            <div class="empty-state m-auto text-center text-gray-400 pointer-events-none">
+                                <i class="fas fa-hand-rock mb-2 text-lg"></i>
+                                <p class="text-xs">Drag & Drop</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 조인 설정 (Join Configuration) -->
-                    <div id="joinConfigList" class="space-y-2 flex flex-col gap-2">
-                        <!-- Joins injected here -->
+                <!-- Joins Configuration -->
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
+                    <div class="absolute -left-2 -top-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 3</div>
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-link text-yellow-500"></i> 조인 조건 설정 (Joins)
+                            </h2>
+                            <p class="text-[10px] text-gray-400 mt-0.5">컬럼 드래그 시 ERD 기반으로 자동 추가되며, 수동 조작도 가능합니다.</p>
+                        </div>
+                        <button onclick="app.addJoin()" class="text-xs bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded border border-yellow-200 hover:bg-yellow-100 font-medium transition">
+                            <i class="fas fa-plus mr-1"></i> 테이블 조인 추가
+                        </button>
+                    </div>
+
+                    <div id="joinConfigList" class="space-y-3 flex flex-col">
+                        <!-- Joins UI injected here -->
+                        <div class="text-center text-[11px] text-gray-400 py-4 bg-gray-50 border border-dashed border-gray-200 rounded-lg">
+                            기준 테이블 외에 다른 테이블 컬럼을 사용하면 여기에 조인이 표시됩니다.
+                        </div>
                     </div>
                 </div>
 
                 <!-- Filters -->
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
+                    <div class="absolute -left-2 -top-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 4</div>
                     <div class="flex justify-between items-center mb-4">
                         <div>
                             <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
@@ -159,7 +180,7 @@
                             <span class="text-gray-400 font-medium">~</span>
                             <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
                         </div>
-                        <p id="partitionDesc" class="text-[10px] text-gray-500 mt-2">기준 테이블을 선택하면 파티션 컬럼(일자/시간)에 맞춰 입력 형식이 변경됩니다.</p>
+                        <p id="partitionDesc" class="text-[10px] text-gray-500 mt-2">기준 테이블을 선택하면 해당 테이블의 파티션 정책(일/시간)에 맞게 백그라운드에서 포맷팅됩니다.</p>
                     </div>
 
                     <!-- Dynamic Filter List -->
@@ -169,1008 +190,94 @@
                 </div>
 
             </div>
+            
+            <!-- Bottom spacing -->
+            <div class="h-10"></div>
         </div>
 
-        <!-- Right Panel: Live SQL Preview & Auto-Join Status -->
         <div class="w-1/3 flex flex-col bg-[#1e1e1e] shrink-0 shadow-2xl z-20 relative">
             <div class="bg-[#252526] px-5 py-3 border-b border-[#333] flex justify-between items-center">
                 <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2 tracking-wide">
-                    <i class="fas fa-code text-red-500"></i> Hive SQL Preview
+                    <i class="fas fa-code text-blue-400"></i> SQL Preview
                 </h3>
-                <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">Auto-Join Active</span>
+                <span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30">Auto-Generated</span>
             </div>
             
-            <!-- SQL Editor Area -->
-            <div class="flex-1 p-5 overflow-auto relative font-mono text-sm">
-                <!-- Toast -->
-                <div id="toast" class="absolute top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg text-sm font-medium transform transition-all duration-300 translate-x-full opacity-0 z-50">
-                    클립보드에 복사되었습니다!
-                </div>
-                
-                <pre id="sqlOutput" class="text-gray-300 whitespace-pre-wrap break-all sql-font leading-relaxed">
-<span class="text-gray-500">-- 기준 테이블과 분석 기준을 선택하면</span>
-<span class="text-gray-500">-- 관계를 분석하여 Hive SQL이 자동 생성됩니다.</span>
+            <div class="flex-1 p-5 overflow-auto relative text-[13px] tracking-wide leading-relaxed vscode-dark">
+                <pre id="sqlOutput" class="whitespace-pre-wrap break-all sql-font">
+<span class="token-comment">-- 기준 테이블을 먼저 선택해 주세요.</span>
+<span class="token-comment">-- (STEP 1부터 순서대로 진행)</span>
 
-<span class="text-blue-400 font-bold">SELECT</span> 
+<span class="token-keyword">SELECT</span> 
     * 
-<span class="text-blue-400 font-bold">FROM</span> dual;
+<span class="token-keyword">FROM</span> dual;
                 </pre>
             </div>
-
-            <!-- Auto-Join Status Monitor -->
-            <div class="h-48 border-t border-[#333] bg-[#1a1a1a] p-4 flex flex-col">
-                <h4 class="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1 uppercase tracking-wider">
-                    <i class="fas fa-link text-gray-500"></i> 조인 경로 분석 (Join Path)
-                </h4>
-                <div id="joinStatus" class="flex-1 overflow-y-auto text-[11px] text-gray-500 space-y-1 font-mono">
-                    대기 중... (테이블을 추가하세요)
-                </div>
-            </div>
         </div>
-
     </main>
 
-    <!-- SQL Examples Modal (Redesigned as Guide) -->
-    <div id="sqlModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center fade-in">
-        <div class="bg-slate-50 rounded-2xl shadow-2xl w-11/12 max-w-7xl h-[90vh] flex flex-col overflow-hidden">
-            <div class="px-8 py-5 border-b border-gray-200 flex justify-between items-center bg-white shadow-sm z-10 shrink-0">
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-bold flex items-center gap-3 transition-all duration-300 opacity-0 pointer-events-none z-50">
+        <i id="toastIcon" class="fas fa-info-circle text-blue-400 text-lg"></i>
+        <span id="toastMsg">알림 메시지</span>
+    </div>
+
+    <div id="sqlModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center fade-in p-4">
+        <div class="bg-[#1e1e1e] rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden border border-[#333]">
+            <div class="px-6 py-4 border-b border-[#333] flex justify-between items-center bg-[#252526] shrink-0">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="fas fa-graduation-cap text-blue-600"></i> Hive SQL 실전 분석 가이드</h2>
-                    <p class="text-sm text-gray-500 mt-1">11번가 광고 데이터 마트 분석을 위해 실무에서 자주 사용되는 9가지 핵심 쿼리 패턴입니다.</p>
+                    <h2 class="text-xl font-bold text-gray-200 flex items-center gap-2"><i class="fas fa-graduation-cap text-blue-400"></i> 실전 Hive SQL 작성 가이드 (9선)</h2>
+                    <p class="text-[11px] text-gray-400 mt-1">실무에서 자주 사용되는 테이블 간 조인 및 집계 쿼리 패턴입니다.</p>
                 </div>
-                <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-red-500 text-2xl transition bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center hover:bg-red-50 hover:border hover:border-red-200"><i class="fas fa-times"></i></button>
+                <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-white transition w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500"><i class="fas fa-times"></i></button>
             </div>
-            <div class="flex-1 overflow-auto p-8 bg-gray-50" id="sqlGuideContainer">
+            <div class="flex-1 overflow-auto p-6 bg-[#1e1e1e] space-y-6" id="sqlGuideContainer">
                 <!-- Guide content dynamically generated here -->
             </div>
         </div>
     </div>
 
     <script>
-        // 1. Data Dictionary & ERD Representation
-        // based on schema.md, erd.md, sql_examples.md
+        // Data Dictionary
         const DB_SCHEMA = {
-            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인 (일)', part: 'dt', type: 'dim', cols: {
-                'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': ''
-            }},
-            'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'id': 'PK', 'ad_grp_nm': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'bid_type_val': '', 'bid_amt': 'num', 'mon_imp_time_val': 'num', 'tue_imp_time_val': 'num', 'wed_imp_time_val': 'num', 'thu_imp_time_val': 'num', 'fri_imp_time_val': 'num', 'sat_imp_time_val': 'num', 'sun_imp_time_val': 'num', 'actvtn_yn': '', 'camp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ad_imp_mdia_val': '', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'ai_yn': ''
-            }},
-            'AD_TARGET': { db: 'ad_platform.dbm_dsp_ad_trgt_live', name: '광고타겟 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'id': 'PK', 'prod_no': 'FK', 'bid_type_val': '', 'bid_amt': 'num', 'keywd_reg_way_val': '', 'actvtn_yn': '', 'ad_grp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'lnkg_impsb_yn': '', 'ai_yn': ''
-            }},
-            'AD_KEYWORD': { db: 'ad_platform.dbm_dsp_ad_keywd_live', name: '키워드입찰 (일)', part: 'part_hour', type: 'dim', cols: {
-                'part_hour': '', 'id': 'PK', 'keywd_nm': '', 'bid_type_val': '', 'bid_amt': 'num', 'actvtn_yn': '', 'ad_trgt_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'rnk_auto_bid_actvtn_yn': '', 'hope_rnk': 'num', 'max_bid_amt': 'num', 'adj_amt': 'num', 'rnk_auto_bid_dt': '', 'expire_dt': ''
-            }},
-            'AGENCY': { db: 'ad_platform.dbm_dsp_agn', name: '대행사 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'id': 'PK', 'agn_nm': '', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num'
-            }},
-            'MARKETER': { db: 'ad_platform.dbm_dsp_mkr', name: '마케터 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'id': 'PK', 'mkr_login_id': '', 'glbl_key_val': 'num', 'extr_mkr_no': '', 'mkr_stat_val': '', 'mkr_auth_type_val': '', 'email_alrm_yn': '', 'cphn_alrm_yn': '', 'etiq_alrm_yn': '', 'email_alrm_agree_dt': '', 'cphn_alrm_agree_dt': '', 'etiq_alrm_agree_dt': '', 'agn_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num'
-            }},
-            'SELLER': { db: 'ad_platform.dbm_dsp_ad_seller', name: '셀러 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'id': 'PK', 'seller_no': 'num', 'biz_no': '', 'seller_id': '', 'rep_seller_yn': '', 'seller_blce_exstn_yn': '', 'mapp_mkr_ent_yn': '', 'adver_mapp_dt': '', 'adver_id': 'num', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ptnr_yn': ''
-            }},
-            'SELLER_MARKETER_MAP': { db: 'ad_platform.dbm_dsp_ad_seller_mkr_mapp_newest', name: '셀러-마케터매핑 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'id': 'PK', 'ad_seller_mkr_mapp_chg_dy': '', 'ad_seller_id': 'FK', 'mkr_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'gdwl_type': ''
-            }},
-            'PRODUCT': { db: '11st.tb_evs_ods_m_dp_live_prd', name: '전시상품 (일)', part: 'part_date', type: 'dim', cols: {
-                'part_date': '', 'prd_no': 'PK', 'mstr_prd_no': 'num', 'sel_mnbd_no': 'num', 'prd_nm': '', 'wirelss_prd_nm': '', 'advrt_stmt': '', 'sel_bgn_dy': '', 'sel_end_dy': '', 'sel_mthd_cd': '', 'sel_stat_cd': '', 'dlv_cst_pay_typ_cd': '', 'dlv_cst_inst_basi_cd': '', 'snd_pln_trm': 'num', 'prd_stat_cd': '', 'seller_prd_cd': '', 'minor_sel_cn_yn': '', 'abrd_brand_yn': '', 'lctgr_no': 'num', 'mctgr_no': 'num', 'sctgr_no': 'num', 'dctgr_no': 'num', 'std_ctgr_no': 'num', 'mstr_prd_kd_cd': '', 'sel_prc': 'num', 'final_dsc_prc': 'num', 'frgft_yn': '', 'seller_hmpg_nm': '', 'sellershp_img_url': '', 'opt_yn': '', 'prd_evl_tot_qty': 'num', 'prd_tot_evl_scor': 'num', 'buy_satisfy': 'num', 'exprt_review_cnt': 'num', 'nck_nm': '', 'mem_id': '', 'brand_cd': '', 'brand_nm': '', 'best_score': 'num', 'mvp_score': 'num', 'pop_score': 'num', 'is_mvp_yn': '', 'is_premium_item': '', 'premium_item_bgn_dy': '', 'premium_item_end_dy': '', 'is_bg_color_item': '', 'bg_color_item_bgn_dy': '', 'bg_color_item_end_dy': '', 'is_focus_item': '', 'focus_item_bgn_dy': '', 'focus_item_end_dy': '', 'img_url_01': '', 'img_url_typ_01': '', 'img_url_02': '', 'img_url_typ_02': '', 'img_url_03': '', 'img_url_typ_03': '', 'is_srch_yn': '', 'is_disp_yn': '', 'prd_create_dt': '', 'prd_update_dt': '', 'create_dt': '', 'update_dt': '', 'dlv_cupn_cd': '', 'prd_pnt_rt': 'num', 'prd_pnt_add_rt': 'num', 'ocb_zone_rt': 'num', 'low_prc_yn': '', 'prd_pnt_pre_yn': '', 'prd_pnt_pre_rt': 'num', 'cupn_ex_cd': '', 'prd_intfree_yn': '', 'skt_add_pre_yn': '', 'seller_ocb': 'num', 'seller_mileage': 'num', 'multi_qty_dsc_amt': 'num', 'multi_qty_dsc_rt': 'num', 'om_prd_yn': '', 'retail_price': 'num', 'makt_prc': 'num', 'gbl_dlv_yn': '', 'price_nm': '', 'ad_movie_yn': '', 'hope_shp_pnt': 'num', 'itm_cupn_iss_cn_yn': '', 'partner_cupn_ex_yn': '', 'lp_cupn_ex_yn': '', 'dlv_prc': 'num', 'rntl_info_list': '', 'std_prd_nm': '', 'dlv_typ_cd': '', 'seller_typ_cd': ''
-            }},
-            'BID_STATUS': { db: 'share_ad.focus_bid_trgt_total', name: '입찰상태 (일)', part: 'dt', type: 'fact', cols: {
-                'dt': 'PK', 'ai_yn': '', 'seller_no': '', 'ptnr_yn': '', 'adver_id': '', 'ad_seller_id': '', 'ad_camp_id': 'FK', 'ad_grp_id': 'FK', 'ad_trgt_id': 'FK', 'prd_no': 'FK', 'keywd_reg_way_val': '', 'camp_start_dy': '', 'camp_end_dy': '', 'camp_budget': '', 'grp_budget': '', 'imp_mdia_val': '', 'mkr_id': '', 'agn_id': 'FK', 'ms_ba': '', 'p_ba': '', 'grp_ms_ba': '', 'grp_p_ba': '', 'trgt_ms_ba': '', 'trgt_p_ba': '', 'adver_lnkg_yn': '', 'lnkg_impsb_yn': '', 'camp_period_yn': '', 'del_yn': '', 'actvtn_yn': '', 'del_str': '', 'actvtn_str': '', 'live_prd_yn': '', 'balance_yn': '', 'ai_objtv_roas': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': ''
-            }},
-            'AD_IMPRESSION': { db: 'ad_platform.vine_app_new_ad_logserver_live_parse_v5', name: '노출/클릭 (일)', part: 'part_hour', type: 'fact', cols: {
-                'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'impression': 'num', 'click': 'num', 'id': 'num', 'act_id': '', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'PK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'bid_amount': 'num', 'ppc': 'num', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'dnt_reason': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'FK', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'FK', 'ad_group_type': '', 'ad_target_id': 'FK', 'keyword_id': 'FK', 'placement_id': '', 'quality_score': 'num', 'qs_bucket': '', 'rank_score': 'num', 'ad_selection_type': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'banner_size': '', 'targeting_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'display_rank': 'num', 'partner_seller': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': ''
-            }},
-            'AD_FEE': { db: 'ad_platform.dsp_ad_fee_log_live_parse_v5', name: '과금 (일)', part: 'part_hour', type: 'fact', cols: {
-                'qs_bucket': '', 'part_hour': '', 'action_date': '', 'transaction_type': '', 'valid_cnt': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'FK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'placement_id': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'free_point_amount': 'num', 'free_point_tax_amount': 'num', 'non_free_point_amount': 'num', 'non_free_point_tax_amount': 'num', 'cash_amount': 'num', 'cash_tax_amount': 'num', 'pay_result': '', 'paid_date': '', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'dnt_reason': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'limit_over_amount': 'num', 'limit_over_tax_amount': 'num', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'prd_mgrp_no': 'num', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': ''
-            }},
-            'AD_CONVERSION': { db: 'ad_platform.vine_new_ad_log_cvr_live_v5', name: '전환 (일)', part: 'part_hour', type: 'fact', cols: {
-                'qs_bucket': '', 'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'conversion': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': 'FK', 'impression_id': '', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'num', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'affiliation_seller_key': '', 'affiliation_product_key': '', 'placement_id': '', 'pay_result': '', 'conversion_price': 'num', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'advertising_id_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'prd_mgrp_no': '', 'prd_grp_no': '', 'order_product_id': '', 'cvr_type': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'is_ai': '', 'contribution_conversion': 'num', 'contribution_conversion_price': 'num', 'virtual_order_no': '', 'is_bot': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': ''
-            }},
-            'PAYMENT': { db: 'share_ad.trans_ad_rel_base', name: '결제 (일)', part: 'dt', type: 'fact', cols: {
-                'dt': '', 'seller_no': '', 'prd_no': 'FK', 'trns_type_cd': '', 'ptnr_cd': '', 'pay_trns_amt': 'num', 'pay_seller_basic_dscnt_amt_drct': 'num', 'pay_seller_dscnt_amt_basic': 'num', 'pay_svc_use_amt': 'num', 'pay_11st_dscnt_amt': 'num', 'pay_net_sale_amt': 'num', 'cnfrm_trns_amt': 'num', 'cnfrm_seller_basic_dscnt_amt_drct': 'num', 'cnfrm_seller_dscnt_amt_basic': 'num', 'cnfrm_svc_use_amt': 'num', 'cnfrm_11st_dscnt_amt': 'num', 'cnfrm_net_sale_amt': 'num', 'pay_cnt': 'num', 'pay_qty': 'num'
-            }},
-            'SEARCH_LOG': { db: 'search.sch_11st_log_client_base', name: '검색로그 (일)', part: 'dt', type: 'fact', cols: {
-                'dt': '', 'base_time': '', 'poc_cl_cd': '', 'incm_grp': '', 'incm_grp_rank': 'num', 'incm_cl_cd': '', 'incm_cl_cd_grp': '', 'page_type': '', 'keyword': '', 'page_id': '', 'action_id': '', 'prev_keyword': '', 'prev_clk_cnt': 'num', 'keyword_grp_id': '', 'buy_grp_id': '', 'sex_cl_cd': '', 'age_cd': '', 'age_5_grp_cd': '', 'age_10_grp_cd': '', 'fix_yn': '', 'fix_keyword': '', 'local_time': '', 'recv_time': '', 'os_name': '', 'os_version': '', 'resolution': '', 'screen_width': '', 'screen_height': '', 'language_code': '', 'rake_lib': '', 'rake_lib_version': '', 'ip': '', 'token': '', 'log_version': '', 'device_id': '', 'device_model': '', 'manufacturer': '', 'carrier_name': '', 'network_type': '', 'app_release': '', 'app_build_number': '', 'browser_name': '', 'browser_version': '', 'referrer': '', 'url': '', 'document_title': '', 'pcid': '', 'page_version': '', 'service_country_code': '', 'service_language_code': '', 'service_currency_code': '', 'member_no': '', 'unique_key': '', 'tr_cd': '', 'ctgr_no': '', 'birthyear': '', 'pf_clf': '', 'bm_clf': '', 'partner_cd': '', 'advrt_no': '', 'advrt_detail': '', 'ad_nm': '', 'ad_tp_cd': '', 'ad_tp_nm': '', 'alcmpn_cd': '', 'alcmpn_nm': '', 'alcmpn_drct_vst_fg_cd': '', 'alcmpn_drct_vst_fg_nm': '', 'alcmpn_tp_cd': '', 'alcmpn_tp_nm': '', 'alcmpn_fg_cd': '', 'alcmpn_fg_nm': '', 'atrb_code': '', 'session_id': 'PK', 'xsite_session_id': '', 'xsite_session_sch_seq': '', 'eleven_device_id': '', 'auid': '', 'app_page_type': '', 'web_log_version': '', 'reco_side_info': '', 'partner_referrer': '', 'ab_tcs': '', 'search_call_id': '', 'search_result_cnt': '', 'search_view_type': '', 'search_sort_type': '', 'page_no': '', 'search_include_keyword': '', 'search_except_keyword': '', 'search_category_no': '', 'search_brand_code': '', 'search_seller_nos': '', 'search_max_price': 'num', 'search_min_price': 'num', 'search_benefit': '', 'search_attribute': '', 'search_prdtype': '', 'search_shipping': '', 'search_filter_yn': '', 'search_ad_show': '', 'search_no_result_yn': '', 'user_input_keyword': '', 'btn_name': '', 'content_no': '', 'content_name': '', 'link_url': '', 'display_order': 'num', 'position_l1': '', 'position_l2': 'num', 'position_l3': '', 'parent_type': '', 'parent_no': '', 'parent_name': '', 'research_include_keyword': '', 'research_except_keyword': '', 'content_code': '', 'seller_no': '', 'search_custom_yn': '', 'search_custom_key': '', 'current_product_no': '', 'trace_meta_category_no': '', 'content_type': '', 'product_no': 'FK', 'display_category_no': '', 'group_product_no': 'num', 'product_type': '', 'last_discount_price': 'num', 'seller_name': '', 'large_category_no': '', 'middle_category_no': '', 'small_category_no': '', 'detail_category_no': '', 'catalog_no': '', 'is_now_delivery': '', 'is_adult_product': '', 'is_sale': '', 'options': '', 'add_product_yn': '', 'add_product_no': '', 'main_product_no': '', 'option_quantity': '', 'stock_no': '', 'option_no': '', 'option_name': '', 'oper_dtm': '', 'qrsid': '', 'qrquery': '', 'search_prj': '', 'type_list': '', 'search_gift_event': '', 'search_gift_target': '', 'search_gift_age': '', 'search_gift_word': '', 'search_prd_type': '', 'gift_filter': '', 'ad_yn': '', 'ad_typ_gubn': '', 'ad_area_gubn': '', 'ad_trc_no': '', 'hashed_mbr_id': '', 'body': '', 'order_no': '', 'clk_yn': '', 'imprs_yn': '', 'cvs_yn': '', 'ord_yn': '', 'search_prod_yn': '', 'cm_ad_dv': '', 'reco_req_id': '', 'app_log_build_time': '', 'ad_resp_id': '', 'ad_impr_id': '', 'collection_object': '', 'add_collection_object': '', 'ab_test': '', 'poc_clf': '', 'label_type': '', 'add_label_type': '', 'snippet_object': '', 'add_snippet_object': '', 'search_main_tab': '', 'search_imp_filter': '', 'search_reviewer_rank': '', 'search_review_type': '', 'search_expert_type': '', 'incm_ht_vtc_yn': '', 'add_incm_ht_vtc_yn': '', 'add_fst_incm_cl_cd': '', 'vertical_yn': '', 'search_quickfilter_imprs': '', 'search_catalog_compare': '', 'movie_auto': '', 'ref_keyword': '', 'sch_ab_test': '', 'sch_ab_test_yn': '', 'sch_amz_prd_yn': '', 'current_content_type': '', 'current_content_no': '', 'content_opt_no': '', 'first_view_product_no': '', 'current_opt_product_no': '', 'first_view_opt_product_no': '', 'opt_product_no': '', 'search_collection': '', 'add_search_collection': ''
-            }}
+            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인', part: 'dt', type: 'dim', cols: { 'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': '' } },
+            'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'ad_grp_nm': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'bid_type_val': '', 'bid_amt': 'num', 'mon_imp_time_val': 'num', 'tue_imp_time_val': 'num', 'wed_imp_time_val': 'num', 'thu_imp_time_val': 'num', 'fri_imp_time_val': 'num', 'sat_imp_time_val': 'num', 'sun_imp_time_val': 'num', 'actvtn_yn': '', 'camp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ad_imp_mdia_val': '', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'ai_yn': '' } },
+            'AD_TARGET': { db: 'ad_platform.dbm_dsp_ad_trgt_live', name: '광고타겟', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'prod_no': 'FK', 'bid_type_val': '', 'bid_amt': 'num', 'keywd_reg_way_val': '', 'actvtn_yn': '', 'ad_grp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'lnkg_impsb_yn': '', 'ai_yn': '' } },
+            'AD_KEYWORD': { db: 'ad_platform.dbm_dsp_ad_keywd_live', name: '키워드입찰', part: 'part_hour', type: 'dim', cols: { 'part_hour': '', 'id': 'PK', 'keywd_nm': '', 'bid_type_val': '', 'bid_amt': 'num', 'actvtn_yn': '', 'ad_trgt_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'rnk_auto_bid_actvtn_yn': '', 'hope_rnk': 'num', 'max_bid_amt': 'num', 'adj_amt': 'num', 'rnk_auto_bid_dt': '', 'expire_dt': '' } },
+            'AGENCY': { db: 'ad_platform.dbm_dsp_agn', name: '대행사', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'agn_nm': '', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num' } },
+            'MARKETER': { db: 'ad_platform.dbm_dsp_mkr', name: '마케터', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'mkr_login_id': '', 'glbl_key_val': 'num', 'extr_mkr_no': '', 'mkr_stat_val': '', 'mkr_auth_type_val': '', 'email_alrm_yn': '', 'cphn_alrm_yn': '', 'etiq_alrm_yn': '', 'email_alrm_agree_dt': '', 'cphn_alrm_agree_dt': '', 'etiq_alrm_agree_dt': '', 'agn_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num' } },
+            'SELLER': { db: 'ad_platform.dbm_dsp_ad_seller', name: '셀러', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'seller_no': 'num', 'biz_no': '', 'seller_id': '', 'rep_seller_yn': '', 'seller_blce_exstn_yn': '', 'mapp_mkr_ent_yn': '', 'adver_mapp_dt': '', 'adver_id': 'num', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ptnr_yn': '' } },
+            'SELLER_MARKETER_MAP': { db: 'ad_platform.dbm_dsp_ad_seller_mkr_mapp_newest', name: '셀러-마케터매핑', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'ad_seller_mkr_mapp_chg_dy': '', 'ad_seller_id': 'FK', 'mkr_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'gdwl_type': '' } },
+            'PRODUCT': { db: '11st.tb_evs_ods_m_dp_live_prd', name: '전시상품', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'prd_no': 'PK', 'mstr_prd_no': 'num', 'sel_mnbd_no': 'num', 'prd_nm': '', 'wirelss_prd_nm': '', 'advrt_stmt': '', 'sel_bgn_dy': '', 'sel_end_dy': '', 'sel_mthd_cd': '', 'sel_stat_cd': '', 'dlv_cst_pay_typ_cd': '', 'dlv_cst_inst_basi_cd': '', 'snd_pln_trm': 'num', 'prd_stat_cd': '', 'seller_prd_cd': '', 'minor_sel_cn_yn': '', 'abrd_brand_yn': '', 'lctgr_no': 'num', 'mctgr_no': 'num', 'sctgr_no': 'num', 'dctgr_no': 'num', 'std_ctgr_no': 'num', 'mstr_prd_kd_cd': '', 'sel_prc': 'num', 'final_dsc_prc': 'num', 'frgft_yn': '', 'seller_hmpg_nm': '', 'sellershp_img_url': '', 'opt_yn': '', 'prd_evl_tot_qty': 'num', 'prd_tot_evl_scor': 'num', 'buy_satisfy': 'num', 'exprt_review_cnt': 'num', 'nck_nm': '', 'mem_id': '', 'brand_cd': '', 'brand_nm': '', 'best_score': 'num', 'mvp_score': 'num', 'pop_score': 'num', 'is_mvp_yn': '', 'is_premium_item': '', 'premium_item_bgn_dy': '', 'premium_item_end_dy': '', 'is_bg_color_item': '', 'bg_color_item_bgn_dy': '', 'bg_color_item_end_dy': '', 'is_focus_item': '', 'focus_item_bgn_dy': '', 'focus_item_end_dy': '', 'img_url_01': '', 'img_url_typ_01': '', 'img_url_02': '', 'img_url_typ_02': '', 'img_url_03': '', 'img_url_typ_03': '', 'is_srch_yn': '', 'is_disp_yn': '', 'prd_create_dt': '', 'prd_update_dt': '', 'create_dt': '', 'update_dt': '', 'dlv_cupn_cd': '', 'prd_pnt_rt': 'num', 'prd_pnt_add_rt': 'num', 'ocb_zone_rt': 'num', 'low_prc_yn': '', 'prd_pnt_pre_yn': '', 'prd_pnt_pre_rt': 'num', 'cupn_ex_cd': '', 'prd_intfree_yn': '', 'skt_add_pre_yn': '', 'seller_ocb': 'num', 'seller_mileage': 'num', 'multi_qty_dsc_amt': 'num', 'multi_qty_dsc_rt': 'num', 'om_prd_yn': '', 'retail_price': 'num', 'makt_prc': 'num', 'gbl_dlv_yn': '', 'price_nm': '', 'ad_movie_yn': '', 'hope_shp_pnt': 'num', 'itm_cupn_iss_cn_yn': '', 'partner_cupn_ex_yn': '', 'lp_cupn_ex_yn': '', 'dlv_prc': 'num', 'rntl_info_list': '', 'std_prd_nm': '', 'dlv_typ_cd': '', 'seller_typ_cd': '' } },
+            'BID_STATUS': { db: 'share_ad.focus_bid_trgt_total', name: '입찰상태', part: 'dt', type: 'fact', cols: { 'dt': 'PK', 'ai_yn': '', 'seller_no': '', 'ptnr_yn': '', 'adver_id': '', 'ad_seller_id': '', 'ad_camp_id': 'FK', 'ad_grp_id': 'FK', 'ad_trgt_id': 'FK', 'prd_no': 'FK', 'keywd_reg_way_val': '', 'camp_start_dy': '', 'camp_end_dy': '', 'camp_budget': '', 'grp_budget': '', 'imp_mdia_val': '', 'mkr_id': '', 'agn_id': 'FK', 'ms_ba': '', 'p_ba': '', 'grp_ms_ba': '', 'grp_p_ba': '', 'trgt_ms_ba': '', 'trgt_p_ba': '', 'adver_lnkg_yn': '', 'lnkg_impsb_yn': '', 'camp_period_yn': '', 'del_yn': '', 'actvtn_yn': '', 'del_str': '', 'actvtn_str': '', 'live_prd_yn': '', 'balance_yn': '', 'ai_objtv_roas': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '' } },
+            'AD_IMPRESSION': { db: 'ad_platform.vine_app_new_ad_logserver_live_parse_v5', name: '노출/클릭', part: 'part_hour', type: 'fact', cols: { 'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'impression': 'num', 'click': 'num', 'id': 'num', 'act_id': '', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'PK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'bid_amount': 'num', 'ppc': 'num', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'dnt_reason': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'FK', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'FK', 'ad_group_type': '', 'ad_target_id': 'FK', 'keyword_id': 'FK', 'placement_id': '', 'quality_score': 'num', 'qs_bucket': '', 'rank_score': 'num', 'ad_selection_type': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'banner_size': '', 'targeting_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'display_rank': 'num', 'partner_seller': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': '' } },
+            'AD_FEE': { db: 'ad_platform.dsp_ad_fee_log_live_parse_v5', name: '과금', part: 'part_hour', type: 'fact', cols: { 'qs_bucket': '', 'part_hour': '', 'action_date': '', 'transaction_type': '', 'valid_cnt': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'FK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'placement_id': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'free_point_amount': 'num', 'free_point_tax_amount': 'num', 'non_free_point_amount': 'num', 'non_free_point_tax_amount': 'num', 'cash_amount': 'num', 'cash_tax_amount': 'num', 'pay_result': '', 'paid_date': '', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'dnt_reason': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'limit_over_amount': 'num', 'limit_over_tax_amount': 'num', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'prd_mgrp_no': 'num', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': '' } },
+            'AD_CONVERSION': { db: 'ad_platform.vine_new_ad_log_cvr_live_v5', name: '전환', part: 'part_hour', type: 'fact', cols: { 'qs_bucket': '', 'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'conversion': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': 'FK', 'impression_id': '', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'num', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'affiliation_seller_key': '', 'affiliation_product_key': '', 'placement_id': '', 'pay_result': '', 'conversion_price': 'num', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'advertising_id_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'prd_mgrp_no': '', 'prd_grp_no': '', 'order_product_id': '', 'cvr_type': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'is_ai': '', 'contribution_conversion': 'num', 'contribution_conversion_price': 'num', 'virtual_order_no': '', 'is_bot': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': '' } },
+            'PAYMENT': { db: 'share_ad.trans_ad_rel_base', name: '결제', part: 'dt', type: 'fact', cols: { 'dt': '', 'seller_no': '', 'prd_no': 'FK', 'trns_type_cd': '', 'ptnr_cd': '', 'pay_trns_amt': 'num', 'pay_seller_basic_dscnt_amt_drct': 'num', 'pay_seller_dscnt_amt_basic': 'num', 'pay_svc_use_amt': 'num', 'pay_11st_dscnt_amt': 'num', 'pay_net_sale_amt': 'num', 'cnfrm_trns_amt': 'num', 'cnfrm_seller_basic_dscnt_amt_drct': 'num', 'cnfrm_seller_dscnt_amt_basic': 'num', 'cnfrm_svc_use_amt': 'num', 'cnfrm_11st_dscnt_amt': 'num', 'cnfrm_net_sale_amt': 'num', 'pay_cnt': 'num', 'pay_qty': 'num' } },
+            'SEARCH_LOG': { db: 'search.sch_11st_log_client_base', name: '검색로그', part: 'dt', type: 'fact', cols: { 'dt': '', 'base_time': '', 'poc_cl_cd': '', 'incm_grp': '', 'incm_grp_rank': 'num', 'incm_cl_cd': '', 'incm_cl_cd_grp': '', 'page_type': '', 'keyword': '', 'page_id': '', 'action_id': '', 'prev_keyword': '', 'prev_clk_cnt': 'num', 'keyword_grp_id': '', 'buy_grp_id': '', 'sex_cl_cd': '', 'age_cd': '', 'age_5_grp_cd': '', 'age_10_grp_cd': '', 'fix_yn': '', 'fix_keyword': '', 'local_time': '', 'recv_time': '', 'os_name': '', 'os_version': '', 'resolution': '', 'screen_width': '', 'screen_height': '', 'language_code': '', 'rake_lib': '', 'rake_lib_version': '', 'ip': '', 'token': '', 'log_version': '', 'device_id': '', 'device_model': '', 'manufacturer': '', 'carrier_name': '', 'network_type': '', 'app_release': '', 'app_build_number': '', 'browser_name': '', 'browser_version': '', 'referrer': '', 'url': '', 'document_title': '', 'pcid': '', 'page_version': '', 'service_country_code': '', 'service_language_code': '', 'service_currency_code': '', 'member_no': '', 'unique_key': '', 'tr_cd': '', 'ctgr_no': '', 'birthyear': '', 'pf_clf': '', 'bm_clf': '', 'partner_cd': '', 'advrt_no': '', 'advrt_detail': '', 'ad_nm': '', 'ad_tp_cd': '', 'ad_tp_nm': '', 'alcmpn_cd': '', 'alcmpn_nm': '', 'alcmpn_drct_vst_fg_cd': '', 'alcmpn_drct_vst_fg_nm': '', 'alcmpn_tp_cd': '', 'alcmpn_tp_nm': '', 'alcmpn_fg_cd': '', 'alcmpn_fg_nm': '', 'atrb_code': '', 'session_id': 'PK', 'xsite_session_id': '', 'xsite_session_sch_seq': '', 'eleven_device_id': '', 'auid': '', 'app_page_type': '', 'web_log_version': '', 'reco_side_info': '', 'partner_referrer': '', 'ab_tcs': '', 'search_call_id': '', 'search_result_cnt': '', 'search_view_type': '', 'search_sort_type': '', 'page_no': '', 'search_include_keyword': '', 'search_except_keyword': '', 'search_category_no': '', 'search_brand_code': '', 'search_seller_nos': '', 'search_max_price': 'num', 'search_min_price': 'num', 'search_benefit': '', 'search_attribute': '', 'search_prdtype': '', 'search_shipping': '', 'search_filter_yn': '', 'search_ad_show': '', 'search_no_result_yn': '', 'user_input_keyword': '', 'btn_name': '', 'content_no': '', 'content_name': '', 'link_url': '', 'display_order': 'num', 'position_l1': '', 'position_l2': 'num', 'position_l3': '', 'parent_type': '', 'parent_no': '', 'parent_name': '', 'research_include_keyword': '', 'research_except_keyword': '', 'content_code': '', 'seller_no': '', 'search_custom_yn': '', 'search_custom_key': '', 'current_product_no': '', 'trace_meta_category_no': '', 'content_type': '', 'product_no': 'FK', 'display_category_no': '', 'group_product_no': 'num', 'product_type': '', 'last_discount_price': 'num', 'seller_name': '', 'large_category_no': '', 'middle_category_no': '', 'small_category_no': '', 'detail_category_no': '', 'catalog_no': '', 'is_now_delivery': '', 'is_adult_product': '', 'is_sale': '', 'options': '', 'add_product_yn': '', 'add_product_no': '', 'main_product_no': '', 'option_quantity': '', 'stock_no': '', 'option_no': '', 'option_name': '', 'oper_dtm': '', 'qrsid': '', 'qrquery': '', 'search_prj': '', 'type_list': '', 'search_gift_event': '', 'search_gift_target': '', 'search_gift_age': '', 'search_gift_word': '', 'search_prd_type': '', 'gift_filter': '', 'ad_yn': '', 'ad_typ_gubn': '', 'ad_area_gubn': '', 'ad_trc_no': '', 'hashed_mbr_id': '', 'body': '', 'order_no': '', 'clk_yn': '', 'imprs_yn': '', 'cvs_yn': '', 'ord_yn': '', 'search_prod_yn': '', 'cm_ad_dv': '', 'reco_req_id': '', 'app_log_build_time': '', 'ad_resp_id': '', 'ad_impr_id': '', 'collection_object': '', 'add_collection_object': '', 'ab_test': '', 'poc_clf': '', 'label_type': '', 'add_label_type': '', 'snippet_object': '', 'add_snippet_object': '', 'search_main_tab': '', 'search_imp_filter': '', 'search_reviewer_rank': '', 'search_review_type': '', 'search_expert_type': '', 'incm_ht_vtc_yn': '', 'add_incm_ht_vtc_yn': '', 'add_fst_incm_cl_cd': '', 'vertical_yn': '', 'search_quickfilter_imprs': '', 'search_catalog_compare': '', 'movie_auto': '', 'ref_keyword': '', 'sch_ab_test': '', 'sch_ab_test_yn': '', 'sch_amz_prd_yn': '', 'current_content_type': '', 'current_content_no': '', 'content_opt_no': '', 'first_view_product_no': '', 'current_opt_product_no': '', 'first_view_opt_product_no': '', 'opt_product_no': '', 'search_collection': '', 'add_search_collection': '' } }
         };
 
-        // Graph for Auto-Join (Adjacency List based on erd.md)
-        // Format: { TableA: [{ target: TableB, on: [colA, colB] }] }
         const ERD_GRAPH = {
-            'AGENCY': [
-                { target: 'AD_IMPRESSION', on: ['id', 'agency_id'] },
-                { target: 'BID_STATUS', on: ['id', 'agn_id'] },
-                { target: 'MARKETER', on: ['id', 'agn_id'] }
-            ],
-            'SELLER': [
-                { target: 'SELLER_MARKETER_MAP', on: ['id', 'ad_seller_id'] },
-                { target: 'CAMPAIGN', on: ['id', 'ad_seller_id'] }
-            ],
-            'MARKETER': [
-                { target: 'SELLER_MARKETER_MAP', on: ['id', 'mkr_id'] },
-                { target: 'AGENCY', on: ['agn_id', 'id'] }
-            ],
-            'SELLER_MARKETER_MAP': [
-                { target: 'SELLER', on: ['ad_seller_id', 'id'] },
-                { target: 'MARKETER', on: ['mkr_id', 'id'] }
-            ],
-            'CAMPAIGN': [
-                { target: 'AD_GROUP', on: ['id', 'camp_id'] },
-                { target: 'AD_IMPRESSION', on: ['id', 'campaign_id'] },
-                { target: 'BID_STATUS', on: ['id', 'ad_camp_id'] },
-                { target: 'SELLER', on: ['ad_seller_id', 'id'] }
-            ],
-            'AD_GROUP': [
-                { target: 'CAMPAIGN', on: ['camp_id', 'id'] },
-                { target: 'AD_TARGET', on: ['id', 'ad_grp_id'] },
-                { target: 'AD_IMPRESSION', on: ['id', 'ad_group_id'] },
-                { target: 'BID_STATUS', on: ['id', 'ad_grp_id'] }
-            ],
-            'AD_TARGET': [
-                { target: 'AD_GROUP', on: ['ad_grp_id', 'id'] },
-                { target: 'AD_KEYWORD', on: ['id', 'ad_trgt_id'] },
-                { target: 'PRODUCT', on: ['prod_no', 'prd_no'] },
-                { target: 'AD_IMPRESSION', on: ['id', 'ad_target_id'] },
-                { target: 'BID_STATUS', on: ['id', 'ad_trgt_id'] }
-            ],
-            'AD_KEYWORD': [
-                { target: 'AD_TARGET', on: ['ad_trgt_id', 'id'] },
-                { target: 'AD_IMPRESSION', on: ['id', 'keyword_id'] }
-            ],
-            'PRODUCT': [
-                { target: 'AD_TARGET', on: ['prd_no', 'prod_no'] },
-                { target: 'AD_IMPRESSION', on: ['prd_no', 'affiliation_product_key'] },
-                { target: 'BID_STATUS', on: ['prd_no', 'prd_no'] },
-                { target: 'PAYMENT', on: ['prd_no', 'prd_no'] },
-                { target: 'SEARCH_LOG', on: ['prd_no', 'product_no'] }
-            ],
-            'BID_STATUS': [
-                { target: 'CAMPAIGN', on: ['ad_camp_id', 'id'] },
-                { target: 'AD_GROUP', on: ['ad_grp_id', 'id'] },
-                { target: 'AD_TARGET', on: ['ad_trgt_id', 'id'] },
-                { target: 'PRODUCT', on: ['prd_no', 'prd_no'] },
-                { target: 'AGENCY', on: ['agn_id', 'id'] }
-            ],
-            'AD_IMPRESSION': [
-                { target: 'CAMPAIGN', on: ['campaign_id', 'id'] },
-                { target: 'AD_GROUP', on: ['ad_group_id', 'id'] },
-                { target: 'AD_TARGET', on: ['ad_target_id', 'id'] },
-                { target: 'AD_KEYWORD', on: ['keyword_id', 'id'] },
-                { target: 'AGENCY', on: ['agency_id', 'id'] },
-                { target: 'PRODUCT', on: ['affiliation_product_key', 'prd_no'] },
-                { target: 'AD_FEE', on: ['impression_id', 'impression_id'] } 
-            ],
-            'AD_FEE': [
-                { target: 'AD_IMPRESSION', on: ['impression_id', 'impression_id'] },
-                { target: 'AD_CONVERSION', on: ['act_id', 'act_id'] },
-                { target: 'CAMPAIGN', on: ['campaign_id', 'id'] }
-            ],
-            'AD_CONVERSION': [
-                { target: 'AD_FEE', on: ['act_id', 'act_id'] }
-            ],
-            'PAYMENT': [
-                { target: 'PRODUCT', on: ['prd_no', 'prd_no'] }
-            ],
-            'SEARCH_LOG': [
-                { target: 'PRODUCT', on: ['product_no', 'prd_no'] }
-            ]
+            'AGENCY': [ { target: 'AD_IMPRESSION', on: ['id', 'agency_id'] }, { target: 'BID_STATUS', on: ['id', 'agn_id'] }, { target: 'MARKETER', on: ['id', 'agn_id'] } ],
+            'SELLER': [ { target: 'SELLER_MARKETER_MAP', on: ['id', 'ad_seller_id'] }, { target: 'CAMPAIGN', on: ['id', 'ad_seller_id'] } ],
+            'MARKETER': [ { target: 'SELLER_MARKETER_MAP', on: ['id', 'mkr_id'] }, { target: 'AGENCY', on: ['agn_id', 'id'] } ],
+            'SELLER_MARKETER_MAP': [ { target: 'SELLER', on: ['ad_seller_id', 'id'] }, { target: 'MARKETER', on: ['mkr_id', 'id'] } ],
+            'CAMPAIGN': [ { target: 'AD_GROUP', on: ['id', 'camp_id'] }, { target: 'AD_IMPRESSION', on: ['id', 'campaign_id'] }, { target: 'BID_STATUS', on: ['id', 'ad_camp_id'] }, { target: 'SELLER', on: ['ad_seller_id', 'id'] } ],
+            'AD_GROUP': [ { target: 'CAMPAIGN', on: ['camp_id', 'id'] }, { target: 'AD_TARGET', on: ['id', 'ad_grp_id'] }, { target: 'AD_IMPRESSION', on: ['id', 'ad_group_id'] }, { target: 'BID_STATUS', on: ['id', 'ad_grp_id'] } ],
+            'AD_TARGET': [ { target: 'AD_GROUP', on: ['ad_grp_id', 'id'] }, { target: 'AD_KEYWORD', on: ['id', 'ad_trgt_id'] }, { target: 'PRODUCT', on: ['prod_no', 'prd_no'] }, { target: 'AD_IMPRESSION', on: ['id', 'ad_target_id'] }, { target: 'BID_STATUS', on: ['id', 'ad_trgt_id'] } ],
+            'AD_KEYWORD': [ { target: 'AD_TARGET', on: ['ad_trgt_id', 'id'] }, { target: 'AD_IMPRESSION', on: ['id', 'keyword_id'] } ],
+            'PRODUCT': [ { target: 'AD_TARGET', on: ['prd_no', 'prod_no'] }, { target: 'AD_IMPRESSION', on: ['prd_no', 'affiliation_product_key'] }, { target: 'BID_STATUS', on: ['prd_no', 'prd_no'] }, { target: 'PAYMENT', on: ['prd_no', 'prd_no'] }, { target: 'SEARCH_LOG', on: ['prd_no', 'product_no'] } ],
+            'BID_STATUS': [ { target: 'CAMPAIGN', on: ['ad_camp_id', 'id'] }, { target: 'AD_GROUP', on: ['ad_grp_id', 'id'] }, { target: 'AD_TARGET', on: ['ad_trgt_id', 'id'] }, { target: 'PRODUCT', on: ['prd_no', 'prd_no'] }, { target: 'AGENCY', on: ['agn_id', 'id'] } ],
+            'AD_IMPRESSION': [ { target: 'CAMPAIGN', on: ['campaign_id', 'id'] }, { target: 'AD_GROUP', on: ['ad_group_id', 'id'] }, { target: 'AD_TARGET', on: ['ad_target_id', 'id'] }, { target: 'AD_KEYWORD', on: ['keyword_id', 'id'] }, { target: 'AGENCY', on: ['agency_id', 'id'] }, { target: 'PRODUCT', on: ['affiliation_product_key', 'prd_no'] }, { target: 'AD_FEE', on: ['impression_id', 'impression_id'] } ],
+            'AD_FEE': [ { target: 'AD_IMPRESSION', on: ['impression_id', 'impression_id'] }, { target: 'AD_CONVERSION', on: ['act_id', 'act_id'] }, { target: 'CAMPAIGN', on: ['campaign_id', 'id'] } ],
+            'AD_CONVERSION': [ { target: 'AD_FEE', on: ['act_id', 'act_id'] } ],
+            'PAYMENT': [ { target: 'PRODUCT', on: ['prd_no', 'prd_no'] } ],
+            'SEARCH_LOG': [ { target: 'PRODUCT', on: ['product_no', 'prd_no'] } ]
         };
 
-        // Application State
-        const state = {
-            baseTable: '',
-            dimensions: [], // { id, table, col }
-            metrics: [],    // { id, table, col, agg }
-            filters: [],    // { id, table, col, op, val, logic }
-            dateRange: { start: '', end: '' },
-            aliases: {},    // Auto-generated table aliases { 'TABLE_NAME': 'a' }
-            joins: []       // { id, type, from, to, conditions: [[fromCol, toCol]] }
-        };
-
-        let dragItemId = null;
-        let dragItemData = null; // { table, col, type }
-
-        const app = {
-            init: function() {
-                this.renderBaseTableOptions();
-                this.renderSchemaExplorer();
-                this.setupDragAndDrop();
-                this.generateSQL();
-                this.parseAndRenderSqlGuide();
-            },
-
-            openSqlExamples: function() {
-                document.getElementById('sqlModal').classList.remove('hidden');
-            },
-
-            closeSqlExamples: function() {
-                document.getElementById('sqlModal').classList.add('hidden');
-            },
-
-            // 1. SQL 가독성 향상을 위한 고급 Syntax Highlighting (VS Code Dark Theme Style)
-            syntaxHighlight: function(sql) {
-                return sql
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/(--.*$)/gm, '<span style="color: #6A9955; font-style: italic;">$1</span>') // 주석
-                    .replace(/('[^']*')/g, '<span style="color: #CE9178;">$1</span>') // 문자열
-                    .replace(/\b(\d+)\b/g, '<span style="color: #B5CEA8;">$1</span>') // 숫자
-                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|UNION|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|WITH|LIMIT)\b/gi, '<span style="color: #569CD6; font-weight: bold;">$1</span>') // 키워드
-                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER|CAST)\b/gi, '<span style="color: #DCDCAA;">$1</span>'); // 함수
-            },
-
-            parseAndRenderSqlGuide: function() {
-                const container = document.getElementById('sqlGuideContainer');
-                if(!container) return;
-
-                const blocks = SQL_EXAMPLES_MD.split(/\[질문 예시 \d+\]/);
-                let html = `<div class="space-y-8 max-w-5xl mx-auto pb-10">`;
-                
-                blocks.forEach((block, index) => {
-                    if (index === 0) return; 
-
-                    const parts = block.split(/\[답변 Hive SQL\]/);
-                    if (parts.length >= 2) {
-                        const questionText = parts[0].trim();
-                        let sqlText = parts[1].trim().replace(/\[학습 사례 시작\]/g, '').trim();
-
-                        const qLines = questionText.split('\n');
-                        const title = qLines[0].trim();
-                        const desc = qLines.slice(1).join('<br>').trim();
-
-                        html += `
-                            <div class="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden flex flex-col transition-all hover:shadow-lg">
-                                <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-white">
-                                    <div class="flex items-start gap-3 mb-2">
-                                        <span class="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm shrink-0 mt-0.5">예제 ${index}</span>
-                                        <h4 class="text-base font-bold text-gray-800 leading-snug">${title}</h4>
-                                    </div>
-                                    ${desc ? `<div class="text-sm text-gray-600 ml-[62px] leading-relaxed mt-2 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">${desc}</div>` : ''}
-                                </div>
-                                <div class="relative group bg-[#1e1e1e] flex-1">
-                                    <div class="absolute top-0 right-0 p-3 flex justify-end bg-gradient-to-b from-[#1e1e1e] to-transparent w-full z-10">
-                                        <button onclick="app.copyText(this)" data-clipboard="${encodeURIComponent(sqlText)}" class="bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-all shadow-sm flex items-center gap-1.5 border border-gray-600">
-                                            <i class="fas fa-copy"></i> SQL 복사
-                                        </button>
-                                    </div>
-                                    <!-- 가독성 향상된 코드 블록 -->
-                                    <div class="text-[14px] overflow-x-auto p-6 pt-10 font-mono leading-relaxed tracking-wide" style="color: #d4d4d4; background-color: #1e1e1e; tab-size: 4;">${this.syntaxHighlight(sqlText)}</div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
-                html += `</div>`;
-                container.innerHTML = html;
-            },
-
-            copyText: function(btn) {
-                const text = decodeURIComponent(btn.getAttribute('data-clipboard'));
-                const temp = document.createElement('textarea');
-                temp.value = text;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                document.body.removeChild(temp);
-                
-                const originalHtml = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-check text-green-400"></i> 복사완료';
-                setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
-            },
-
-            reset: function() {
-                state.baseTable = '';
-                state.dimensions = [];
-                state.metrics = [];
-                state.filters = [];
-                state.dateRange = { start: '', end: '' };
-                state.joins = [];
-                
-                const startEl = document.getElementById('dateStart');
-                const endEl = document.getElementById('dateEnd');
-                startEl.value = '';
-                endEl.value = '';
-                startEl.type = 'date';
-                endEl.type = 'date';
-                document.getElementById('partitionLabel').innerHTML = '<i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>';
-                document.getElementById('partitionDesc').innerHTML = '기준 테이블을 선택하면 파티션 컬럼(일자/시간)에 맞춰 입력 형식이 변경됩니다.';
-                
-                document.getElementById('baseTableSelect').value = '';
-                this.renderDimensions();
-                this.renderMetrics();
-                this.renderFilters();
-                this.renderJoinsUI();
-                this.generateSQL();
-            },
-
-            renderBaseTableOptions: function() {
-                const select = document.getElementById('baseTableSelect');
-                Object.keys(DB_SCHEMA).forEach(key => {
-                    const info = DB_SCHEMA[key];
-                    select.innerHTML += `<option value="${key}">${key} (${info.name})</option>`;
-                });
-            },
-
-            renderSchemaExplorer: function() {
-                const container = document.getElementById('schemaExplorer');
-                container.innerHTML = '';
-                
-                Object.keys(DB_SCHEMA).forEach(tableName => {
-                    const table = DB_SCHEMA[tableName];
-                    const isFact = table.type === 'fact';
-                    
-                    let html = `
-                        <div class="mb-2 bg-white rounded-md border border-gray-200 overflow-hidden shadow-sm">
-                            <div class="px-3 py-2 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition select-none" onclick="app.toggleCollapse('${tableName}')">
-                                <div class="flex items-center gap-2 overflow-hidden">
-                                    <i class="fas ${isFact ? 'fa-bolt text-yellow-500' : 'fa-cube text-blue-500'} text-xs"></i>
-                                    <div class="truncate">
-                                        <div class="text-xs font-bold text-gray-800">${tableName}</div>
-                                        <div class="text-[10px] text-gray-400">${table.name}</div>
-                                    </div>
-                                </div>
-                                <i class="fas fa-chevron-down text-[10px] text-gray-400 transform transition-transform duration-200" id="icon-${tableName}"></i>
-                            </div>
-                            <div class="hidden flex-col bg-white" id="cols-${tableName}">
-                    `;
-                    
-                    Object.keys(table.cols).forEach(colName => {
-                        const colType = table.cols[colName];
-                        let icon = 'fa-tag text-gray-400';
-                        let badge = '';
-                        let isNum = colType === 'num' || colType === 'double' || colType === 'bigint' || colType === 'int';
-                        
-                        if(colType === 'PK') { icon = 'fa-key text-yellow-500'; badge='PK'; }
-                        if(colType === 'FK') { icon = 'fa-link text-blue-400'; badge='FK'; }
-                        if(isNum) { icon = 'fa-hashtag text-green-500'; badge='NUM'; }
-
-                        html += `
-                                <div class="px-3 py-1.5 pl-8 text-[11px] border-t border-gray-50 flex justify-between items-center group cursor-grab hover:bg-red-50 transition"
-                                     draggable="true" 
-                                     ondragstart="app.handleDragStart(event, '${tableName}', '${colName}', '${isNum ? 'metric' : 'dim'}')">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas ${icon}"></i>
-                                        <span class="font-medium text-gray-700 group-hover:text-red-700">${colName}</span>
-                                    </div>
-                                    ${badge ? `<span class="text-[8px] bg-gray-100 text-gray-500 px-1 rounded">${badge}</span>` : ''}
-                                </div>
-                        `;
-                    });
-                    
-                    html += `</div></div>`;
-                    container.innerHTML += html;
-                });
-            },
-
-            toggleCollapse: function(id) {
-                const el = document.getElementById(`cols-${id}`);
-                const icon = document.getElementById(`icon-${id}`);
-                el.classList.toggle('hidden');
-                el.classList.toggle('flex');
-                icon.classList.toggle('-rotate-90');
-            },
-
-            handleDragStart: function(e, table, col, type) {
-                dragItemData = { table, col, type };
-                e.dataTransfer.effectAllowed = 'copy';
-                e.target.style.opacity = '0.5';
-            },
-
-            setupDragAndDrop: function() {
-                const setupZone = (id, acceptType, addCallback) => {
-                    const zone = document.getElementById(id);
-                    zone.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        if (!state.baseTable) return;
-                        zone.classList.add('drag-over');
-                    });
-                    zone.addEventListener('dragleave', (e) => {
-                        e.preventDefault();
-                        zone.classList.remove('drag-over');
-                    });
-                    zone.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        zone.classList.remove('drag-over');
-                        if (!state.baseTable) {
-                            alert('먼저 기준 데이터(Base Table)를 선택해주세요.');
-                            return;
-                        }
-                        if (dragItemData) {
-                            addCallback(dragItemData);
-                            dragItemData = null;
-                        }
-                    });
-                };
-
-                setupZone('dimensionsList', 'dim', (data) => {
-                    state.dimensions.push({ id: Date.now(), showBucket: false, buckets: [], elseLabel: '기타', ...data });
-                    app.autoAddJoins();
-                    app.renderDimensions();
-                    app.generateSQL();
-                });
-
-                setupZone('metricsList', 'metric', (data) => {
-                    let agg = 'SUM';
-                    const colType = DB_SCHEMA[data.table].cols[data.col];
-                    if(!['num', 'int', 'bigint', 'double'].includes(colType)) agg = 'COUNT_DISTINCT';
-                    
-                    state.metrics.push({ id: Date.now(), agg: agg, ...data });
-                    app.autoAddJoins();
-                    app.renderMetrics();
-                    app.generateSQL();
-                });
-            },
-
-            setBaseTable: function(val) {
-                state.baseTable = val;
-                state.joins = []; // 기준 테이블 변경시 조인 초기화
-                
-                if (val) {
-                    const info = DB_SCHEMA[val];
-                    const partCol = info.part;
-                    const startEl = document.getElementById('dateStart');
-                    const endEl = document.getElementById('dateEnd');
-                    const labelEl = document.getElementById('partitionLabel');
-                    const descEl = document.getElementById('partitionDesc');
-
-                    startEl.type = 'date';
-                    endEl.type = 'date';
-                    
-                    let formatStr = 'YYYYMMDD';
-                    if (val === 'AD_KEYWORD') formatStr = 'YYYYMMDD02';
-
-                    if (labelEl) labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${partCol}) <span class="text-red-500">*필수</span>`;
-                    
-                    if (val === 'AD_KEYWORD') {
-                        if (descEl) descEl.innerHTML = `해당 테이블은 <b>${formatStr}</b> 포맷을 사용합니다. 선택한 일자에 자동으로 '02'가 붙어 쿼리됩니다.`;
-                    } else if (partCol === 'part_hour') {
-                        if (descEl) descEl.innerHTML = `컬럼명은 part_hour 이지만 schema.md 정책상 <b>${formatStr}</b> (일단위) 포맷으로 쿼리됩니다.`;
-                    } else {
-                        if (descEl) descEl.innerHTML = `기준 테이블 파티션에 맞춰 <b>${formatStr}</b> 포맷으로 조건이 적용됩니다.`;
-                    }
-                }
-                
-                this.autoAddJoins();
-                this.generateSQL();
-            },
-
-            renderDimensions: function() {
-                const container = document.getElementById('dimensionsList');
-                if (state.dimensions.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">좌측에서 컬럼을 드래그하세요</p></div>`;
-                    return;
-                }
-                
-                container.innerHTML = state.dimensions.map(d => `
-                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <div class="flex items-center gap-2 truncate">
-                                <i class="fas fa-grip-vertical text-gray-300"></i>
-                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
-                                <span class="font-bold text-gray-800">${d.col}</span>
-                            </div>
-                            <div class="flex items-center gap-1 shrink-0">
-                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition" title="CASE WHEN 조건 설정">
-                                    <i class="fas fa-layer-group"></i> 구간화
-                                </button>
-                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeDim(${d.id})"></i>
-                            </div>
-                        </div>
-                        ${d.showBucket ? `
-                            <div class="bg-gray-50 border border-gray-200 rounded p-2 mt-1">
-                                <div class="text-[10px] font-bold text-gray-600 mb-1 flex justify-between items-center">
-                                    <span><i class="fas fa-code text-blue-400 mr-1"></i>CASE WHEN 조건 설정</span>
-                                    <button onclick="app.addBucketRule(${d.id})" class="text-blue-500 hover:text-blue-700 bg-white px-1.5 py-0.5 border border-gray-200 rounded shadow-sm"><i class="fas fa-plus"></i> 추가</button>
-                                </div>
-                                <div class="space-y-1.5 mt-2">
-                                    ${d.buckets.map((b, i) => `
-                                        <div class="flex items-center gap-1 text-[10px]">
-                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">WHEN</span>
-                                            <select onchange="app.updateBucketRule(${d.id}, ${i}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
-                                                <option value=">=" ${b.op==='>='?'selected':''}>&gt;=</option>
-                                                <option value=">" ${b.op==='>'?'selected':''}>&gt;</option>
-                                                <option value="<=" ${b.op==='<='?'selected':''}>&lt;=</option>
-                                                <option value="<" ${b.op==='<'?'selected':''}>&lt;</option>
-                                                <option value="=" ${b.op==='='?'selected':''}>=</option>
-                                                <option value="!=" ${b.op==='!='?'selected':''}>!=</option>
-                                            </select>
-                                            <input type="text" value="${b.val}" onchange="app.updateBucketRule(${d.id}, ${i}, 'val', this.value)" placeholder="기준값" class="border border-gray-300 rounded outline-none p-1 w-16 font-mono focus:border-blue-500">
-                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">THEN</span>
-                                            <input type="text" value="${b.label}" onchange="app.updateBucketRule(${d.id}, ${i}, 'label', this.value)" placeholder="부여할 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
-                                            <button onclick="app.removeBucketRule(${d.id}, ${i})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
-                                        </div>
-                                    `).join('')}
-                                    <div class="flex items-center gap-1 text-[10px] mt-2 pt-2 border-t border-gray-200">
-                                        <span class="font-bold text-gray-500 bg-gray-200 px-1 rounded">ELSE</span>
-                                        <input type="text" value="${d.elseLabel || '기타'}" onchange="app.updateBucketElse(${d.id}, this.value)" placeholder="나머지 기본 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
-                                    </div>
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-            },
-
-            removeDim: function(id) { state.dimensions = state.dimensions.filter(d => d.id !== id); this.renderDimensions(); this.generateSQL(); },
-            toggleBucket: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.showBucket = !d.showBucket; this.renderDimensions(); } },
-            addBucketRule: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.push({ op: '>=', val: '0', label: '그룹명' }); this.renderDimensions(); this.generateSQL(); } },
-            updateBucketRule: function(id, idx, field, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets[idx][field] = val; this.generateSQL(); } },
-            removeBucketRule: function(id, idx) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.splice(idx, 1); this.renderDimensions(); this.generateSQL(); } },
-            updateBucketElse: function(id, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.elseLabel = val; this.generateSQL(); } },
-            
-            renderMetrics: function() {
-                const container = document.getElementById('metricsList');
-                if (state.metrics.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">수치계산/카운트할 컬럼을 드래그하세요</p></div>`;
-                    return;
-                }
-                
-                container.innerHTML = state.metrics.map(m => `
-                    <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <div class="flex items-center gap-2 truncate">
-                                <i class="fas fa-grip-vertical text-gray-300"></i>
-                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${m.table}</span>
-                                <span class="font-bold text-gray-800">${m.col}</span>
-                            </div>
-                            <div class="flex items-center gap-1 shrink-0">
-                                <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="text-[10px] border border-gray-200 rounded outline-none p-1 bg-white focus:border-green-500 text-green-700 font-bold">
-                                    <option value="SUM" ${m.agg === 'SUM' ? 'selected' : ''}>SUM</option>
-                                    <option value="COUNT" ${m.agg === 'COUNT' ? 'selected' : ''}>COUNT</option>
-                                    <option value="COUNT_DISTINCT" ${m.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DISTINCT)</option>
-                                    <option value="AVG" ${m.agg === 'AVG' ? 'selected' : ''}>AVG</option>
-                                    <option value="MAX" ${m.agg === 'MAX' ? 'selected' : ''}>MAX</option>
-                                    <option value="MIN" ${m.agg === 'MIN' ? 'selected' : ''}>MIN</option>
-                                </select>
-                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            },
-
-            removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
-            updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
-            
-            renderFilters: function() {
-                const container = document.getElementById('filterList');
-                if (!container) return;
-                
-                if (state.filters.length === 0) {
-                    container.innerHTML = '';
-                    return;
-                }
-                
-                const activeTables = Array.from(this.getActiveTables());
-                
-                container.innerHTML = state.filters.map((f, i) => {
-                    const tableOpts = activeTables.map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
-                    const colOpts = f.table && DB_SCHEMA[f.table] ? Object.keys(DB_SCHEMA[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('') : '<option value="">테이블 먼저 선택</option>';
-                    
-                    return `
-                    <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-sm fade-in">
-                        <div class="flex items-center gap-2 mb-2">
-                            ${i > 0 ? `
-                                <select onchange="app.updateFilter(${i}, 'logic', this.value)" class="text-xs border border-gray-300 rounded p-1.5 bg-white font-bold text-blue-600 outline-none">
-                                    <option value="AND" ${f.logic === 'AND' ? 'selected' : ''}>AND</option>
-                                    <option value="OR" ${f.logic === 'OR' ? 'selected' : ''}>OR</option>
-                                </select>
-                            ` : '<span class="text-xs font-bold text-gray-500 w-12 text-center">WHERE</span>'}
-                            
-                            <select onchange="app.updateFilter(${i}, 'agg', this.value)" class="text-[11px] border border-gray-300 rounded p-1.5 bg-white outline-none focus:border-purple-500 font-bold ${f.agg ? 'text-purple-600' : 'text-gray-600'}">
-                                <option value="" ${f.agg === '' ? 'selected' : ''}>일반 필터 (WHERE)</option>
-                                <option value="SUM" ${f.agg === 'SUM' ? 'selected' : ''}>SUM (HAVING)</option>
-                                <option value="COUNT" ${f.agg === 'COUNT' ? 'selected' : ''}>COUNT (HAVING)</option>
-                                <option value="COUNT_DISTINCT" ${f.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DIST) (HAVING)</option>
-                                <option value="AVG" ${f.agg === 'AVG' ? 'selected' : ''}>AVG (HAVING)</option>
-                            </select>
-                            
-                            <button onclick="app.removeFilter(${i})" class="ml-auto text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div class="flex items-center gap-2 text-xs">
-                            <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
-                                <option value="">테이블 선택</option>${tableOpts}
-                            </select>
-                            <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
-                                <option value="">컬럼 선택</option>${colOpts}
-                            </select>
-                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-16 text-center">
-                                <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
-                                <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
-                                <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
-                                <option value=">=" ${f.op === '>=' ? 'selected' : ''}>&gt;=</option>
-                                <option value="<" ${f.op === '<' ? 'selected' : ''}>&lt;</option>
-                                <option value="<=" ${f.op === '<=' ? 'selected' : ''}>&lt;=</option>
-                                <option value="IN" ${f.op === 'IN' ? 'selected' : ''}>IN</option>
-                                <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
-                            </select>
-                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-purple-500 font-mono text-gray-700 placeholder-gray-300" placeholder="'값'">
-                        </div>
-                    </div>
-                    `;
-                }).join('');
-            },
-
-            addFilter: function() {
-                const active = Array.from(this.getActiveTables());
-                const defaultT = active.length > 0 ? active[0] : '';
-                state.filters.push({ table: defaultT, col: '', agg: '', op: '=', val: "''", logic: 'AND' });
-                this.renderFilters();
-            },
-            updateFilter: function(i, field, val) { 
-                state.filters[i][field] = val; 
-                if (field === 'table') {
-                    state.filters[i].col = ''; 
-                    this.renderFilters(); 
-                    this.autoAddJoins();
-                }
-                this.generateSQL(); 
-            },
-            removeFilter: function(i) { state.filters.splice(i, 1); this.renderFilters(); this.generateSQL(); },
-            updateDate: function() { 
-                state.dateRange.start = document.getElementById('dateStart').value; 
-                state.dateRange.end = document.getElementById('dateEnd').value; 
-                this.generateSQL(); 
-            },
-
-            getActiveTables: function() {
-                const tables = new Set();
-                if (state.baseTable) tables.add(state.baseTable);
-                state.dimensions.forEach(d => tables.add(d.table));
-                state.metrics.forEach(m => {
-                    if (m.isCalc) {
-                        Object.keys(DB_SCHEMA).forEach(t => {
-                            if (m.formula && m.formula.includes(t + '.')) tables.add(t);
-                        });
-                    } else {
-                        tables.add(m.table);
-                    }
-                });
-                state.filters.forEach(f => { if(f.table) tables.add(f.table); });
-                return tables;
-            },
-
-            addCalcMetric: function() {
-                state.metrics.push({ id: Date.now(), isCalc: true, formula: '', alias: 'new_metric' });
-                this.renderMetrics();
-                this.generateSQL();
-            },
-
-            updateCalcMetric: function(id, field, val) {
-                const m = state.metrics.find(x => x.id === id);
-                if (m) m[field] = val;
-                this.autoAddJoins();
-                this.generateSQL();
-            },
-            
-            updateBucketAgg: function(id, val) {
-                const d = state.dimensions.find(x => x.id === id);
-                if(d) { d.bucketAgg = val; this.generateSQL(); }
-            },
-
-            renderDimensions: function() {
-                const container = document.getElementById('dimensionsList');
-                if (state.dimensions.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">좌측에서 컬럼을 드래그하세요</p></div>`;
-                    return;
-                }
-                
-                container.innerHTML = state.dimensions.map(d => `
-                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <div class="flex items-center gap-2 truncate">
-                                <i class="fas fa-grip-vertical text-gray-300"></i>
-                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
-                                <span class="font-bold text-gray-800">${d.col}</span>
-                            </div>
-                            <div class="flex items-center gap-1 shrink-0">
-                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition" title="CASE WHEN 조건 설정">
-                                    <i class="fas fa-layer-group"></i> 구간화
-                                </button>
-                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeDim(${d.id})"></i>
-                            </div>
-                        </div>
-                        ${d.showBucket ? `
-                            <div class="bg-gray-50 border border-gray-200 rounded p-2 mt-1">
-                                <div class="text-[10px] font-bold text-gray-600 mb-1 flex justify-between items-center">
-                                    <div class="flex items-center gap-1">
-                                        <i class="fas fa-code text-blue-400"></i> 조건 
-                                        <select onchange="app.updateBucketAgg(${d.id}, this.value)" class="ml-1 text-[9px] border border-blue-300 rounded outline-none bg-white focus:border-blue-500 font-bold text-blue-700">
-                                            <option value="" ${!d.bucketAgg ? 'selected' : ''}>일반조건</option>
-                                            <option value="SUM" ${d.bucketAgg === 'SUM' ? 'selected' : ''}>SUM()</option>
-                                            <option value="AVG" ${d.bucketAgg === 'AVG' ? 'selected' : ''}>AVG()</option>
-                                            <option value="COUNT" ${d.bucketAgg === 'COUNT' ? 'selected' : ''}>COUNT()</option>
-                                            <option value="MAX" ${d.bucketAgg === 'MAX' ? 'selected' : ''}>MAX()</option>
-                                            <option value="MIN" ${d.bucketAgg === 'MIN' ? 'selected' : ''}>MIN()</option>
-                                        </select>
-                                    </div>
-                                    <button onclick="app.addBucketRule(${d.id})" class="text-blue-500 hover:text-blue-700 bg-white px-1.5 py-0.5 border border-gray-200 rounded shadow-sm"><i class="fas fa-plus"></i> 추가</button>
-                                </div>
-                                <div class="space-y-1.5 mt-2">
-                                    ${d.buckets.map((b, i) => `
-                                        <div class="flex items-center gap-1 text-[10px]">
-                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">WHEN</span>
-                                            <select onchange="app.updateBucketRule(${d.id}, ${i}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
-                                                <option value=">=" ${b.op==='>='?'selected':''}>&gt;=</option>
-                                                <option value=">" ${b.op==='>'?'selected':''}>&gt;</option>
-                                                <option value="<=" ${b.op==='<='?'selected':''}>&lt;=</option>
-                                                <option value="<" ${b.op==='<'?'selected':''}>&lt;</option>
-                                                <option value="=" ${b.op==='='?'selected':''}>=</option>
-                                                <option value="!=" ${b.op==='!='?'selected':''}>!=</option>
-                                            </select>
-                                            <input type="text" value="${b.val}" onchange="app.updateBucketRule(${d.id}, ${i}, 'val', this.value)" placeholder="기준값" class="border border-gray-300 rounded outline-none p-1 w-12 font-mono focus:border-blue-500">
-                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">THEN</span>
-                                            <input type="text" value="${b.label}" onchange="app.updateBucketRule(${d.id}, ${i}, 'label', this.value)" placeholder="부여할 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
-                                            <button onclick="app.removeBucketRule(${d.id}, ${i})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
-                                        </div>
-                                    `).join('')}
-                                    <div class="flex items-center gap-1 text-[10px] mt-2 pt-2 border-t border-gray-200">
-                                        <span class="font-bold text-gray-500 bg-gray-200 px-1 rounded">ELSE</span>
-                                        <input type="text" value="${d.elseLabel || '기타'}" onchange="app.updateBucketElse(${d.id}, this.value)" placeholder="나머지 기본 라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
-                                    </div>
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-            },
-
-            renderMetrics: function() {
-                const container = document.getElementById('metricsList');
-                if (state.metrics.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400"><i class="fas fa-mouse-pointer mb-2 text-lg"></i><p class="text-xs">수치계산/카운트할 컬럼을 드래그하세요</p></div>`;
-                    return;
-                }
-                
-                container.innerHTML = state.metrics.map(m => {
-                    if (m.isCalc) {
-                        return `
-                        <div class="bg-green-50 border border-green-300 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
-                            <div class="flex justify-between items-center text-xs mb-1">
-                                <span class="font-bold text-green-800"><i class="fas fa-square-root-alt mr-1"></i> 수식 연산 (Calculated)</span>
-                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
-                            </div>
-                            <div class="flex flex-col gap-1.5 text-xs">
-                                <input type="text" value="${m.formula.replace(/"/g, '&quot;')}" onchange="app.updateCalcMetric(${m.id}, 'formula', this.value)" placeholder="예: SUM(AD_FEE.cash_amount) / SUM(AD_IMPRESSION.click)" class="border border-green-300 rounded p-1.5 w-full outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400 shadow-inner">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-green-700 bg-green-200 px-1.5 py-0.5 rounded text-[10px]">AS</span>
-                                    <input type="text" value="${m.alias}" onchange="app.updateCalcMetric(${m.id}, 'alias', this.value)" placeholder="결과컬럼명" class="border border-green-300 rounded p-1.5 flex-1 outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400">
-                                </div>
-                            </div>
-                        </div>`;
-                    } else {
-                        return `
-                        <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
-                            <div class="flex justify-between items-center text-xs">
-                                <div class="flex items-center gap-2 truncate">
-                                    <i class="fas fa-grip-vertical text-gray-300"></i>
-                                    <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${m.table}</span>
-                                    <span class="font-bold text-gray-800">${m.col}</span>
-                                </div>
-                                <div class="flex items-center gap-1 shrink-0">
-                                    <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="text-[10px] border border-gray-200 rounded outline-none p-1 bg-white focus:border-green-500 text-green-700 font-bold">
-                                        <option value="SUM" ${m.agg === 'SUM' ? 'selected' : ''}>SUM</option>
-                                        <option value="COUNT" ${m.agg === 'COUNT' ? 'selected' : ''}>COUNT</option>
-                                        <option value="COUNT_DISTINCT" ${m.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DISTINCT)</option>
-                                        <option value="AVG" ${m.agg === 'AVG' ? 'selected' : ''}>AVG</option>
-                                        <option value="MAX" ${m.agg === 'MAX' ? 'selected' : ''}>MAX</option>
-                                        <option value="MIN" ${m.agg === 'MIN' ? 'selected' : ''}>MIN</option>
-                                    </select>
-                                    <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
-                                </div>
-                            </div>
-                        </div>`;
-                    }
-                }).join('');
-            },
-
-            removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
-            updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
-
-            generateSQL: function() {
-                const out = document.getElementById('sqlOutput');
-                
-                if (!state.baseTable) {
-                    out.innerHTML = `<span style="color: #6A9955; font-style: italic;">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span style="color: #569CD6; font-weight: bold;">SELECT</span> \n    * \n<span style="color: #569CD6; font-weight: bold;">FROM</span> dual;`;
-                    const statusDiv = document.getElementById('joinStatus');
-                    if (statusDiv) statusDiv.innerHTML = '대기 중... (테이블을 추가하세요)';
-                    return;
-                }
-
-                const activeTables = this.getActiveTables();
-                state.joins.forEach(j => {
-                    if (j.from) activeTables.add(j.from);
-                    if (j.to) activeTables.add(j.to);
-                });
-                
-                state.aliases = {};
-                let aliasIdx = 0;
-                const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-                activeTables.forEach(t => { state.aliases[t] = alphabet[aliasIdx++]; });
-
-                let sql = `<span class="text-blue-400 font-bold">SELECT</span>\n`;
-                
-                const selects = [];
-                const groupBys = [];
-
-                // 1. Dimensions 생성 (구간화 및 일반)
-                state.dimensions.forEach(d => {
-                    if (d.buckets && d.buckets.length > 0) {
-                        let caseSelect = `<span class="text-blue-400 font-bold">CASE</span>\n`;
-                        let caseGroup = `<span class="text-blue-400 font-bold">CASE</span> `;
-                        
-                        let colExpr = d.bucketAgg ? `<span class="text-green-400">${d.bucketAgg}</span>(${state.aliases[d.table]}.${d.col})` : `${state.aliases[d.table]}.${d.col}`;
-                        let colExprRaw = d.bucketAgg ? `${d.bucketAgg}(${state.aliases[d.table]}.${d.col})` : `${state.aliases[d.table]}.${d.col}`;
-
-                        d.buckets.forEach(b => {
-                            caseSelect += `        <span class="text-blue-400 font-bold">WHEN</span> ${colExpr} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '<span class="text-orange-300">${b.label}</span>'\n`;
-                            caseGroup += `<span class="text-blue-400 font-bold">WHEN</span> ${colExprRaw} ${b.op} ${b.val} <span class="text-blue-400 font-bold">THEN</span> '${b.label}' `;
-                        });
-                        
-                        caseSelect += `        <span class="text-blue-400 font-bold">ELSE</span> '<span class="text-orange-300">${d.elseLabel || '기타'}</span>'\n`;
-                        caseSelect += `    <span class="text-blue-400 font-bold">END</span>`;
-                        caseGroup += `<span class="text-blue-400 font-bold">ELSE</span> '${d.elseLabel || '기타'}' <span class="text-blue-400 font-bold">END</span>`;
-
-                        selects.push(`    ${caseSelect} <span class="text-blue-300 font-bold">AS</span> ${d.col}_bucket`);
-                        
-                        // 집계 함수(SUM 등)가 구간화에 사용된 경우 GROUP BY에서 제외
-                        if (!d.bucketAgg) {
-                            groupBys.push(`    ${caseGroup}`);
-                        }
-                    } else {
-                        selects.push(`    ${state.aliases[d.table]}.${d.col}`);
-                        groupBys.push(`    ${state.aliases[d.table]}.${d.col}`);
-                    }
-                });
-
-                // 2. Metrics 생성 (일반 및 수식 연산)
-                state.metrics.forEach(m => {
-                    if (m.isCalc) {
-                        // 사용자가 입력한 수식 내 테이블명을 Alias로 치환
-                        let parsedFormula = m.formula;
-                        Object.keys(state.aliases).forEach(tName => {
-                            const regex = new RegExp(`\\b${tName}\\.`, 'g');
-                            parsedFormula = parsedFormula.replace(regex, `${state.aliases[tName]}.`);
-                        });
-                        // 함수 하이라이팅 적용
-                        parsedFormula = parsedFormula.replace(/\b(SUM|COUNT|AVG|MAX|MIN|IFNULL|COALESCE)\b/gi, '<span class="text-green-400">$1</span>');
-                        
-                        selects.push(`    ${parsedFormula} <span class="text-blue-300 font-bold">AS</span> ${m.alias}`);
-                    } else {
-                        if (m.agg === 'COUNT_DISTINCT') {
-                            selects.push(`    <span class="text-green-400">COUNT</span>(<span class="text-blue-400 font-bold">DISTINCT</span> ${state.aliases[m.table]}.${m.col}) <span class="text-blue-300 font-bold">AS</span> count_dist_${m.col}`);
-                        } else {
-                            selects.push(`    <span class="text-green-400">${m.agg}</span>(${state.aliases[m.table]}.${m.col}) <span class="text-blue-300 font-bold">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
-                        }
-                    }
-                });
-
-                if (selects.length === 0) {
-                    sql += `    *\n`;
-                } else {
-                    sql += selects.join(',\n') + '\n';
-                }
-
-                const baseDb = DB_SCHEMA[state.baseTable].db;
-                sql += `<span class="text-blue-400 font-bold">FROM</span> ${baseDb} ${state.aliases[state.baseTable]}\n`;
-
-                // 3. 조인 생성
-                state.joins.forEach(j => {
-                    if (!j.from || !j.to) return; 
-                    const joinType = j.type || 'LEFT JOIN';
-
-                    if (joinType === 'UNION ALL') {
-                         sql += `<span class="text-blue-400 font-bold">UNION ALL</span>\n<span class="text-blue-400 font-bold">SELECT</span> ... <span class="text-blue-400 font-bold">FROM</span> ${DB_SCHEMA[j.to].db} ${state.aliases[j.to]}\n`;
-                    } else {
-                        sql += `<span class="text-blue-400 font-bold">${joinType}</span> ${DB_SCHEMA[j.to].db} ${state.aliases[j.to]}\n`;
-                        
-                        const onClauses = j.conditions.map((cond, idx) => {
-                            if (!cond[0] || !cond[1]) return '';
-                            return `    ${idx === 0 ? '<span class="text-blue-400 font-bold">ON</span>' : '<span class="text-purple-400 font-bold">AND</span>'} ${state.aliases[j.from]}.${cond[0]} = ${state.aliases[j.to]}.${cond[1]}`;
-                        }).filter(Boolean);
-                        
-                        if (onClauses.length > 0) {
-                            sql += onClauses.join('\n') + '\n';
-                        } else {
-                            sql += `    <span class="text-blue-400 font-bold">ON</span> 1=1 <span class="text-gray-500">-- 설정된 조인 조건 없음</span>\n`;
-                        }
-                    }
-                });
-
-                const wheres = [];
-                
-                if (state.dateRange.start && state.dateRange.end) {
-                    let start = state.dateRange.start.replace(/-/g, '');
-                    let end = state.dateRange.end.replace(/-/g, '');
-                    let partCol = DB_SCHEMA[state.baseTable].part;
-                    
-                    if (state.baseTable === 'AD_KEYWORD') {
-                        start += '02';
-                        end += '02';
-                    }
-                    
-                    wheres.push(`${state.aliases[state.baseTable]}.${partCol} <span class="text-blue-400 font-bold">BETWEEN</span> '${start}' <span class="text-blue-400 font-bold">AND</span> '${end}'`);
-                }
-
-                const havingFilters = [];
-                state.filters.forEach((f, idx) => {
-                    if (!f.table || !f.col) return;
-                    
-                    let condStr = '';
-                    let colExpr = `${state.aliases[f.table]}.${f.col}`;
-                    
-                    if (f.agg) {
-                        if (f.agg === 'COUNT_DISTINCT') {
-                            colExpr = `COUNT(DISTINCT ${colExpr})`;
-                        } else {
-                            colExpr = `${f.agg}(${colExpr})`;
-                        }
-                    }
-                    
-                    condStr += `${colExpr} ${f.op} ${f.val}`;
-
-                    if (f.agg) {
-                        havingFilters.push({logic: f.logic, str: condStr, idx: idx});
-                    } else {
-                        wheres.push({logic: f.logic, str: condStr, idx: idx});
-                    }
-                });
-
-                if (wheres.length > 0) {
-                    sql += `<span class="text-blue-400 font-bold">WHERE</span>\n`;
-                    let wIdx = 0;
-                    wheres.forEach((w) => {
-                        if (typeof w === 'string') {
-                            sql += `    ${wIdx > 0 ? '<span class="text-blue-400 font-bold">AND</span> ' : ''}${w}\n`;
-                            wIdx++;
-                        } else {
-                            sql += `    ${wIdx > 0 ? `<span class="text-blue-400 font-bold">${w.logic}</span> ` : ''}${w.str}\n`;
-                            wIdx++;
-                        }
-                    });
-                }
-
-                if (groupBys.length > 0 && state.metrics.length > 0) {
-                    sql += `<span class="text-blue-400 font-bold">GROUP BY</span>\n${groupBys.join(',\n')}\n`;
-                }
-
-                if (havingFilters.length > 0) {
-                    sql += `<span class="text-blue-400 font-bold">HAVING</span>\n`;
-                    havingFilters.forEach((h, i) => {
-                        sql += `    ${i > 0 ? `<span class="text-blue-400 font-bold">${h.logic}</span> ` : ''}${h.str}\n`;
-                    });
-                }
-
-                out.innerHTML = sql;
-            },
-
-            copySQL: function() {
-                const out = document.getElementById('sqlOutput');
-                const text = out.innerText;
-                const temp = document.createElement('textarea');
-                temp.value = text;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                document.body.removeChild(temp);
-                
-                const toast = document.getElementById('toast');
-                toast.classList.remove('translate-x-full', 'opacity-0');
-                setTimeout(() => {
-                    toast.classList.add('translate-x-full', 'opacity-0');
-                }, 3000);
-            }
-        };
-
-        // SQL Examples Content
         const SQL_EXAMPLES_MD = `[학습 사례 시작]
-
 [질문 예시 1]
 26년3월26일에 발생한 직방 기준 검색QC랑 검색 세션수, 그리고 서비스 전 영역에서 발생한 세션수랑 pv수 알려줘.
 추가로 동일한 일자의 OM결제거래액, om직방 결제거래액, 리테일 결제거래액, om이랑 리테일 포함한 총 결제거래액도 같이 알려줘.
-
 [답변 Hive SQL]
 SELECT
     ta.dt,
@@ -1196,9 +303,7 @@ FROM (
     FROM share_ad.svc_traffic_metric_daily 
     WHERE dt = '20260326'  
     group by dt
-    
     union all
-    
     SELECT 
         dt,
         0 as total_sess_cnt,
@@ -1214,9 +319,7 @@ FROM (
         and drct_vst = 'Y'
         and poc_clf in ('app+mw','pc')
     group by dt
-    
     union all
-    
     SELECT 
          dt,
          0 as total_sess_cnt,
@@ -1231,14 +334,11 @@ FROM (
     WHERE dt = '20260326'
     group by dt
 )ta
-group by ta.dt
-;
-
+group by ta.dt;
 [질문 예시 2]
 아래 기간에 발생한 통합검색 영역의 QC랑 키워드수를 일자, 시간대, 디바이스별로 구분해서 알려줘.
 그리고 포커스 응답QC랑 키워드수도 같이 알려줘.
 - 기간: 2023.07.03~2023.07.09 
-
 [답변 Hive SQL]
 SELECT  
    DT,
@@ -1260,14 +360,11 @@ WHERE
 GROUP BY
    DT,
    SUBSTR(base_time,9,2),
-  POC_CL_CD
-;
-
+  POC_CL_CD;
 [질문 예시 3]
 아래 기간에 발생한 통합검색 영역의 QC랑 키워드수를 일자, 디바이스별로 구분해서 알려줘.
 그리고 포커스 응답QC랑 키워드수도 같이 알려줘.
 - 기간: 2023.07.03~2023.07.09 
-
 [답변 Hive SQL]
 SELECT  
    DT,
@@ -1287,12 +384,9 @@ WHERE
 	AND page_id = '/search_result/all'  -- 통합검색
 GROUP BY
    DT,
-  POC_CL_CD
-;
-
+  POC_CL_CD;
 [질문 예시 4]
 3월1일에 mwsrch00 영역에서 발생한 포커스클릭의 노출, 클릭 등 주요 지표를 노출 구간(1~4위 까지는 "A영역", 그 밑은 "B영역")에 따라 구하는 쿼리 짜줘.
-
 [답변 Hive SQL]
 select
 	ta.dt	dt,
@@ -1321,9 +415,7 @@ from
 	GROUP BY
 		part_hour, 
 		IF(display_rank in (1,2,3,4),"A영역","B영역")
-
 	UNION ALL
-			
 	SELECT 
 		part_hour as dt, 
 		IF(display_rank in (1,2,3,4),"A영역","B영역") AS area,
@@ -1341,9 +433,7 @@ from
 	GROUP BY
 		part_hour, 
 		IF(display_rank in (1,2,3,4),"A영역","B영역")
-					
 	UNION ALL
-						
 	SELECT
 		part_hour as dt, 
 		IF(display_rank in (1,2,3,4),"A영역","B영역") AS area,
@@ -1365,13 +455,10 @@ from
 	) ta	
 group by
 	ta.dt,
-	ta.area
-;
-
+	ta.area;
 [질문 예시 5]
 직전일까지 3월에 포커스클릭에 입찰한 상품수를 on상태인 것과 전시여부까지 고려한 상태인 것을 구분해서 각각 일자별로 구하고 싶어.
 추가로 포커스클릭 중에서도 AI캠페인의 상품수만도 별도로 확인하려고 해.
-
 [답변 Hive SQL]
 select
   	dt
@@ -1383,12 +470,9 @@ from
 	SHARE_AD.FOCUS_BID_TRGT_TOTAL
 where
 	dt like '202603%' 
- group by dt
-;	
-
+ group by dt;	
 [질문 예시 6]
 6월부터 어제까지 일자별로 캠페인 예산이 100% 소진 완료되었던 광고 캠페인 수를 시간대, AI캠페인 유무를 구분해서 집계하고 싶어
-
 [답변 Hive SQL]
 SELECT 		
 	part_date as dt,	
@@ -1406,13 +490,10 @@ WHERE
 group by 		
 	part_date,	
 	ai_yn,	
-	substr(dd_allw_bdg_over_dt,12,2)	
-;		
-
+	substr(dd_allw_bdg_over_dt,12,2);		
 [질문 예시 7]
 검색 플랫폼에서 진행한 AB테스트의 실적을 영역과 컬렉션에 따라 확인하고 싶어.
 세션수, 포커스클릭 광고 실적부터 QC, 광고가 붙어있던 QC 등 주요 지표들을 집계해줘
-
 [답변 Hive SQL]
 SELECT 				
 	sch_ab_test				
@@ -1440,13 +521,10 @@ WHERE
 GROUP BY			
 	sch_ab_test		
 	,split(ta.action_id, '\\.')[1]
-	,GET_JSON_OBJECT(ta.body, '$.collection_object.name')		
-;		
-
+	,GET_JSON_OBJECT(ta.body, '$.collection_object.name');
 [질문 예시 8]
 어제 판매중이었던 상품이 포커스클릭 광고에 입찰되어있던 상품인지를 확인하고, 해당 상품의 거래액 정보(결제거래 즉차, 결제 순매출액, 결제 상품 수량)와 포커스클릭 과금액이 얼마였는지 집계해줘.
 이때 상품 정보 확인을 위해 카테고리 번호랑 판매가, 할인모음가도 같이 추출하고 싶어.
-
 [답변 Hive SQL]
 with base AS (
 	select
@@ -1523,12 +601,9 @@ with base AS (
   LEFT JOIN 11st.ods_om_dp_live_prc te ON ta.PRD_NO = te.PRD_NO and te.part_date = '20260701'
   LEFT JOIN 11st.tb_evs_ods_m_pd_prd_prc tf ON ta.PRD_NO = tf.PRD_NO and tf.part_date = '20260701'
   LEFT JOIN ORD tg on ta.prd_no = tg.prd_no 
-  LEFT JOIN AD th on ta.prd_no = th.prd_no
- ;
-
+  LEFT JOIN AD th on ta.prd_no = th.prd_no;
 [질문 예시 9]
 애드오피스에 가입된 셀러의 셀러별 잔액과 매핑되어있는 대행사, 광고주ID 정보를 알고 싶어. 
-
 [답변 Hive SQL]
 WITH mkr_map AS (
   select
@@ -1564,13 +639,753 @@ select
 from ad_platform.dbm_dsp_ad_seller sell
 LEFT JOIN mkr_map on mkr_map.part_date = sell.part_date and sell.id = mkr_map.ad_seller_id
 LEFT JOIN ad_platform.dbm_dsp_agn agn on mkr_map.part_date = agn.part_date and mkr_map.agn_id = agn.id
-where sell.part_date = 20260720 AND DEL_DT is null
-;`;
-        
-        // Start App
-        window.onload = function() {
-            app.init();
+where sell.part_date = 20260720 AND DEL_DT is null;`;
+
+        // State Management
+        const state = {
+            baseTable: '',
+            dimensions: [], 
+            metrics: [],    
+            filters: [],    
+            dateRange: { start: '', end: '' },
+            aliases: {},    
+            joins: []       
         };
+
+        let dragItemData = null;
+
+        // Custom Toast Utility
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const txt = document.getElementById('toastMsg');
+            
+            txt.innerText = msg;
+            if (isError) {
+                toast.classList.replace('bg-gray-800', 'bg-red-600');
+                icon.className = 'fas fa-exclamation-triangle text-white text-lg';
+            } else {
+                toast.classList.replace('bg-red-600', 'bg-gray-800');
+                icon.className = 'fas fa-check-circle text-green-400 text-lg';
+            }
+            
+            toast.classList.remove('opacity-0', 'translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-2');
+            }, 3000);
+        }
+
+        const app = {
+            init: function() {
+                this.renderBaseTableOptions();
+                this.renderSchemaExplorer();
+                this.setupDragAndDrop();
+                this.parseAndRenderSqlGuide();
+                this.generateSQL();
+            },
+
+            openSqlExamples: function() { document.getElementById('sqlModal').classList.remove('hidden'); },
+            closeSqlExamples: function() { document.getElementById('sqlModal').classList.add('hidden'); },
+
+            syntaxHighlightVSCode: function(sql) {
+                return sql
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/(--.*$)/gm, '<span class="token-comment">$1</span>') // 주석
+                    .replace(/('[^']*')/g, '<span class="token-string">$1</span>') // 문자열
+                    .replace(/\b(\d+)\b/g, '<span class="token-number">$1</span>') // 숫자
+                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|UNION|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|WITH|LIMIT)\b/gi, '<span class="token-keyword">$1</span>') // 키워드
+                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER|CAST)\b/gi, '<span class="token-function">$1</span>') // 함수
+                    .replace(/(=|>|<|!=|>=|<=)/g, '<span class="token-operator">$1</span>'); // 연산자
+            },
+
+            parseAndRenderSqlGuide: function() {
+                const container = document.getElementById('sqlGuideContainer');
+                if(!container) return;
+                const blocks = SQL_EXAMPLES_MD.split(/\[질문 예시 \d+\]/);
+                let html = `<div class="grid grid-cols-1 gap-6 pb-10">`;
+                
+                blocks.forEach((block, index) => {
+                    if (index === 0) return; 
+                    const parts = block.split(/\[답변 Hive SQL\]/);
+                    if (parts.length >= 2) {
+                        const questionText = parts[0].trim();
+                        let sqlText = parts[1].trim().replace(/\[학습 사례 시작\]/g, '').trim();
+                        const qLines = questionText.split('\n');
+                        const title = qLines[0].trim();
+                        const desc = qLines.slice(1).join('<br>').trim();
+
+                        html += `
+                            <div class="bg-[#252526] rounded-xl shadow-lg border border-[#333] overflow-hidden flex flex-col group">
+                                <div class="px-5 py-4 border-b border-[#333] bg-[#2a2d2e]">
+                                    <div class="flex items-start gap-3">
+                                        <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded mt-0.5">예제 ${index}</span>
+                                        <h4 class="text-sm font-bold text-gray-200 leading-snug">${title}</h4>
+                                    </div>
+                                    ${desc ? `<div class="text-[12px] text-gray-400 ml-[52px] mt-2 bg-[#1e1e1e] p-3 rounded border border-[#333]">${desc}</div>` : ''}
+                                </div>
+                                <div class="relative bg-[#1e1e1e] text-[13px] font-mono leading-relaxed p-5 overflow-x-auto vscode-dark">
+                                    <button onclick="app.copyText(this)" data-clipboard="${encodeURIComponent(sqlText)}" class="absolute top-3 right-3 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i class="fas fa-copy"></i> 복사
+                                    </button>
+                                    ${this.syntaxHighlightVSCode(sqlText)}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                html += `</div>`;
+                container.innerHTML = html;
+            },
+
+            copyText: function(btn) {
+                const text = decodeURIComponent(btn.getAttribute('data-clipboard'));
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
+                setTimeout(() => { btn.innerHTML = original; }, 2000);
+            },
+
+            reset: function() {
+                state.baseTable = '';
+                state.dimensions = [];
+                state.metrics = [];
+                state.filters = [];
+                state.dateRange = { start: '', end: '' };
+                state.joins = [];
+                
+                document.getElementById('dateStart').value = '';
+                document.getElementById('dateEnd').value = '';
+                document.getElementById('baseTableSelect').value = '';
+                document.getElementById('partitionLabel').innerHTML = '<i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>';
+                
+                this.renderDimensions();
+                this.renderMetrics();
+                this.renderJoinsUI();
+                this.renderFilters();
+                this.generateSQL();
+            },
+
+            renderBaseTableOptions: function() {
+                const select = document.getElementById('baseTableSelect');
+                Object.keys(DB_SCHEMA).forEach(key => {
+                    select.innerHTML += `<option value="${key}">${key} (${DB_SCHEMA[key].name})</option>`;
+                });
+            },
+
+            renderSchemaExplorer: function() {
+                const container = document.getElementById('schemaExplorer');
+                container.innerHTML = '';
+                
+                Object.keys(DB_SCHEMA).forEach(tableName => {
+                    const table = DB_SCHEMA[tableName];
+                    const isFact = table.type === 'fact';
+                    
+                    let html = `
+                        <div class="mb-1 bg-white rounded border border-gray-200 overflow-hidden schema-table" data-name="${tableName.toLowerCase()}">
+                            <div class="px-3 py-2 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition select-none" onclick="app.toggleCollapse('${tableName}')">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <i class="fas ${isFact ? 'fa-bolt text-yellow-500' : 'fa-cube text-blue-500'} text-[10px]"></i>
+                                    <div class="truncate">
+                                        <div class="text-[11px] font-bold text-gray-800">${tableName}</div>
+                                        <div class="text-[9px] text-gray-400">${table.name}</div>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-down text-[9px] text-gray-400 transform transition-transform duration-200" id="icon-${tableName}"></i>
+                            </div>
+                            <div class="hidden flex-col bg-white" id="cols-${tableName}">
+                    `;
+                    
+                    Object.keys(table.cols).forEach(colName => {
+                        const colType = table.cols[colName];
+                        let icon = 'fa-tag text-gray-400';
+                        let badge = '';
+                        let isNum = colType === 'num' || colType === 'double' || colType === 'bigint' || colType === 'int';
+                        
+                        if(colType === 'PK') { icon = 'fa-key text-yellow-500'; badge='PK'; }
+                        if(colType === 'FK') { icon = 'fa-link text-blue-400'; badge='FK'; }
+                        if(isNum) { icon = 'fa-hashtag text-green-500'; badge='NUM'; }
+
+                        html += `
+                                <div class="px-3 py-1.5 pl-7 text-[10px] border-t border-gray-50 flex justify-between items-center group cursor-grab hover:bg-red-50 transition schema-col"
+                                     data-name="${colName.toLowerCase()}"
+                                     draggable="true" 
+                                     ondragstart="app.handleDragStart(event, '${tableName}', '${colName}', '${isNum ? 'metric' : 'dim'}')">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas ${icon}"></i>
+                                        <span class="font-medium text-gray-600 group-hover:text-red-700">${colName}</span>
+                                    </div>
+                                    ${badge ? `<span class="text-[8px] bg-gray-100 text-gray-400 px-1 rounded">${badge}</span>` : ''}
+                                </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                    container.innerHTML += html;
+                });
+            },
+
+            filterSchema: function() {
+                const term = document.getElementById('searchInput').value.toLowerCase();
+                document.querySelectorAll('.schema-table').forEach(tbl => {
+                    const tName = tbl.getAttribute('data-name');
+                    let showTable = tName.includes(term);
+                    let hasMatchCol = false;
+                    
+                    tbl.querySelectorAll('.schema-col').forEach(col => {
+                        const cName = col.getAttribute('data-name');
+                        if (cName.includes(term)) {
+                            col.style.display = 'flex';
+                            hasMatchCol = true;
+                        } else {
+                            col.style.display = 'none';
+                        }
+                    });
+                    
+                    if (showTable || hasMatchCol) {
+                        tbl.style.display = 'block';
+                        // Expand if there's a column match but not a full table match, or just searching deeply
+                        if (term.length > 0 && hasMatchCol) {
+                            const body = tbl.querySelector('.flex-col.bg-white');
+                            if(body) { body.classList.remove('hidden'); body.classList.add('flex'); }
+                        }
+                    } else {
+                        tbl.style.display = 'none';
+                    }
+                });
+            },
+
+            toggleCollapse: function(id) {
+                const el = document.getElementById(`cols-${id}`);
+                const icon = document.getElementById(`icon-${id}`);
+                el.classList.toggle('hidden');
+                el.classList.toggle('flex');
+                icon.classList.toggle('-rotate-90');
+            },
+
+            handleDragStart: function(e, table, col, type) {
+                dragItemData = { table, col, type };
+                e.dataTransfer.effectAllowed = 'copy';
+            },
+
+            setupDragAndDrop: function() {
+                const setupZone = (id, acceptCallback) => {
+                    const zone = document.getElementById(id);
+                    zone.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        if (!state.baseTable) return;
+                        zone.classList.add('drag-over');
+                    });
+                    zone.addEventListener('dragleave', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('drag-over');
+                    });
+                    zone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('drag-over');
+                        if (!state.baseTable) {
+                            showToast('먼저 STEP 1의 기준 테이블(Base Table)을 선택해 주세요.', true);
+                            return;
+                        }
+                        if (dragItemData) {
+                            acceptCallback(dragItemData);
+                            this.autoAddJoinPath(dragItemData.table);
+                            dragItemData = null;
+                        }
+                    });
+                };
+
+                setupZone('dimensionsList', (data) => {
+                    state.dimensions.push({ id: Date.now(), showBucket: false, buckets: [], elseLabel: '기타', ...data });
+                    this.renderDimensions();
+                    this.generateSQL();
+                });
+
+                setupZone('metricsList', (data) => {
+                    let agg = 'SUM';
+                    const colType = DB_SCHEMA[data.table].cols[data.col];
+                    if(!['num', 'int', 'bigint', 'double'].includes(colType)) agg = 'COUNT_DISTINCT';
+                    state.metrics.push({ id: Date.now(), agg: agg, ...data });
+                    this.renderMetrics();
+                    this.generateSQL();
+                });
+            },
+
+            autoAddJoinPath: function(targetTable) {
+                if (targetTable === state.baseTable) return;
+                
+                // 이미 조인 목록에 존재하는지 확인 (양방향 체크)
+                const isJoined = state.joins.some(j => j.toTable === targetTable || j.fromTable === targetTable);
+                if (isJoined) return;
+
+                // ERD 기반 1 Depth 연결 탐색 (현재 활성화된 모든 테이블 기준)
+                const activeTables = [state.baseTable, ...state.joins.map(j => j.toTable), ...state.joins.map(j => j.fromTable)].filter(Boolean);
+                
+                for (let source of activeTables) {
+                    const edges = ERD_GRAPH[source] || [];
+                    const edge = edges.find(e => e.target === targetTable);
+                    if (edge) {
+                        state.joins.push({
+                            id: Date.now(),
+                            type: 'LEFT JOIN',
+                            fromTable: source,
+                            toTable: targetTable,
+                            conditions: [{ fromCol: edge.on[0], toCol: edge.on[1] }]
+                        });
+                        this.renderJoinsUI();
+                        return;
+                    }
+                }
+                
+                // 직접 연결 경로를 못 찾은 경우 빈 조인 껍데기 추가
+                state.joins.push({
+                    id: Date.now(),
+                    type: 'LEFT JOIN',
+                    fromTable: state.baseTable,
+                    toTable: targetTable,
+                    conditions: [{ fromCol: '', toCol: '' }]
+                });
+                this.renderJoinsUI();
+            },
+
+            setBaseTable: function(val) {
+                state.baseTable = val;
+                state.joins = []; 
+                
+                if (val) {
+                    const info = DB_SCHEMA[val];
+                    const labelEl = document.getElementById('partitionLabel');
+                    
+                    let formatStr = 'YYYYMMDD';
+                    if (val === 'AD_KEYWORD') formatStr = 'YYYYMMDD02';
+                    
+                    labelEl.innerHTML = `<i class="fas fa-calendar-alt"></i> 파티션 기간 (${info.part}) <span class="text-red-500">*필수</span>`;
+                    document.getElementById('partitionDesc').innerHTML = `기준 테이블 정책에 맞춰 <b>${formatStr}</b> 포맷으로 자동 변환되어 적용됩니다.`;
+                }
+                
+                this.renderJoinsUI();
+                this.generateSQL();
+            },
+
+            getActiveTables: function() {
+                const tables = new Set();
+                if (state.baseTable) tables.add(state.baseTable);
+                state.dimensions.forEach(d => tables.add(d.table));
+                state.metrics.forEach(m => {
+                    if (m.isCalc) {
+                        Object.keys(DB_SCHEMA).forEach(t => {
+                            if (m.formula && m.formula.includes(t + '.')) tables.add(t);
+                        });
+                    } else {
+                        tables.add(m.table);
+                    }
+                });
+                state.filters.forEach(f => { if(f.table) tables.add(f.table); });
+                state.joins.forEach(j => { if(j.fromTable) tables.add(j.fromTable); if(j.toTable) tables.add(j.toTable); });
+                return tables;
+            },
+
+            // --- Dimensions ---
+            renderDimensions: function() {
+                const container = document.getElementById('dimensionsList');
+                if (state.dimensions.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">Drag & Drop</p></div>`;
+                    return;
+                }
+                
+                container.innerHTML = state.dimensions.map(d => `
+                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="fas fa-grip-vertical text-gray-300"></i>
+                                <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
+                                <span class="font-bold text-gray-800">${d.col}</span>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition" title="CASE WHEN 조건 설정">
+                                    <i class="fas fa-layer-group"></i> 구간화
+                                </button>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeDim(${d.id})"></i>
+                            </div>
+                        </div>
+                        ${d.showBucket ? `
+                            <div class="bg-gray-50 border border-gray-200 rounded p-2 mt-1">
+                                <div class="text-[10px] font-bold text-gray-600 mb-1 flex justify-between items-center">
+                                    <div class="flex items-center gap-1">
+                                        <i class="fas fa-code text-blue-400"></i>
+                                        <select onchange="app.updateBucketAgg(${d.id}, this.value)" class="ml-1 text-[9px] border border-blue-300 rounded outline-none bg-white focus:border-blue-500 font-bold text-blue-700">
+                                            <option value="" ${!d.bucketAgg ? 'selected' : ''}>일반조건</option>
+                                            <option value="SUM" ${d.bucketAgg === 'SUM' ? 'selected' : ''}>SUM()</option>
+                                            <option value="AVG" ${d.bucketAgg === 'AVG' ? 'selected' : ''}>AVG()</option>
+                                            <option value="COUNT" ${d.bucketAgg === 'COUNT' ? 'selected' : ''}>COUNT()</option>
+                                        </select>
+                                    </div>
+                                    <button onclick="app.addBucketRule(${d.id})" class="text-blue-500 hover:text-blue-700 bg-white px-1.5 py-0.5 border border-gray-200 rounded shadow-sm"><i class="fas fa-plus"></i> 추가</button>
+                                </div>
+                                <div class="space-y-1.5 mt-2">
+                                    ${d.buckets.map((b, i) => `
+                                        <div class="flex items-center gap-1 text-[10px]">
+                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">WHEN</span>
+                                            <select onchange="app.updateBucketRule(${d.id}, ${i}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
+                                                <option value=">=" ${b.op==='>='?'selected':''}>&gt;=</option>
+                                                <option value=">" ${b.op==='>'?'selected':''}>&gt;</option>
+                                                <option value="<=" ${b.op==='<='?'selected':''}>&lt;=</option>
+                                                <option value="<" ${b.op==='<'?'selected':''}>&lt;</option>
+                                                <option value="=" ${b.op==='='?'selected':''}>=</option>
+                                                <option value="!=" ${b.op==='!='?'selected':''}>!=</option>
+                                            </select>
+                                            <input type="text" value="${b.val.replace(/"/g, '&quot;')}" onchange="app.updateBucketRule(${d.id}, ${i}, 'val', this.value)" placeholder="기준" class="border border-gray-300 rounded outline-none p-1 w-12 font-mono focus:border-blue-500">
+                                            <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">THEN</span>
+                                            <input type="text" value="${b.label.replace(/"/g, '&quot;')}" onchange="app.updateBucketRule(${d.id}, ${i}, 'label', this.value)" placeholder="라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                            <button onclick="app.removeBucketRule(${d.id}, ${i})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
+                                        </div>
+                                    `).join('')}
+                                    <div class="flex items-center gap-1 text-[10px] mt-2 pt-2 border-t border-gray-200">
+                                        <span class="font-bold text-gray-500 bg-gray-200 px-1 rounded">ELSE</span>
+                                        <input type="text" value="${d.elseLabel || '기타'}" onchange="app.updateBucketElse(${d.id}, this.value)" placeholder="나머지 그룹명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            },
+            removeDim: function(id) { state.dimensions = state.dimensions.filter(d => d.id !== id); this.renderDimensions(); this.generateSQL(); },
+            toggleBucket: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.showBucket = !d.showBucket; this.renderDimensions(); } },
+            addBucketRule: function(id) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.push({ op: '>=', val: '0', label: '그룹명' }); this.renderDimensions(); this.generateSQL(); } },
+            updateBucketRule: function(id, idx, field, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets[idx][field] = val; this.generateSQL(); } },
+            removeBucketRule: function(id, idx) { const d = state.dimensions.find(x => x.id === id); if(d) { d.buckets.splice(idx, 1); this.renderDimensions(); this.generateSQL(); } },
+            updateBucketElse: function(id, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.elseLabel = val; this.generateSQL(); } },
+            updateBucketAgg: function(id, val) { const d = state.dimensions.find(x => x.id === id); if(d) { d.bucketAgg = val; this.generateSQL(); } },
+
+            // --- Metrics ---
+            renderMetrics: function() {
+                const container = document.getElementById('metricsList');
+                if (state.metrics.length === 0) {
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">Drag & Drop</p></div>`;
+                    return;
+                }
+                container.innerHTML = state.metrics.map(m => {
+                    if (m.isCalc) {
+                        return `
+                        <div class="bg-green-50 border border-green-300 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="font-bold text-green-800"><i class="fas fa-square-root-alt mr-1"></i> 수식 연산 (Calc)</span>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                            </div>
+                            <div class="flex flex-col gap-1.5 text-xs">
+                                <input type="text" value="${m.formula.replace(/"/g, '&quot;')}" onchange="app.updateCalcMetric(${m.id}, 'formula', this.value)" placeholder="예: SUM(AD_FEE.cash_amount) / SUM(AD_IMPRESSION.click)" class="border border-green-300 rounded p-1.5 w-full outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-green-700 bg-green-200 px-1.5 py-0.5 rounded text-[10px]">AS</span>
+                                    <input type="text" value="${m.alias}" onchange="app.updateCalcMetric(${m.id}, 'alias', this.value)" placeholder="결과컬럼명" class="border border-green-300 rounded p-1.5 flex-1 outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400">
+                                </div>
+                            </div>
+                        </div>`;
+                    } else {
+                        return `
+                        <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <div class="flex items-center gap-2 truncate">
+                                    <i class="fas fa-grip-vertical text-gray-300"></i>
+                                    <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${m.table}</span>
+                                    <span class="font-bold text-gray-800">${m.col}</span>
+                                </div>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <select onchange="app.updateMetricAgg(${m.id}, this.value)" class="text-[9px] border border-gray-200 rounded outline-none p-1 bg-white focus:border-green-500 text-green-700 font-bold">
+                                        <option value="SUM" ${m.agg === 'SUM' ? 'selected' : ''}>SUM</option>
+                                        <option value="COUNT" ${m.agg === 'COUNT' ? 'selected' : ''}>COUNT</option>
+                                        <option value="COUNT_DISTINCT" ${m.agg === 'COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DISTINCT)</option>
+                                        <option value="AVG" ${m.agg === 'AVG' ? 'selected' : ''}>AVG</option>
+                                        <option value="MAX" ${m.agg === 'MAX' ? 'selected' : ''}>MAX</option>
+                                        <option value="MIN" ${m.agg === 'MIN' ? 'selected' : ''}>MIN</option>
+                                    </select>
+                                    <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                }).join('');
+            },
+            addCalcMetric: function() { state.metrics.push({ id: Date.now(), isCalc: true, formula: '', alias: 'new_metric' }); this.renderMetrics(); this.generateSQL(); },
+            removeMetric: function(id) { state.metrics = state.metrics.filter(m => m.id !== id); this.renderMetrics(); this.generateSQL(); },
+            updateMetricAgg: function(id, val) { const m = state.metrics.find(x => x.id === id); if(m) m.agg = val; this.generateSQL(); },
+            updateCalcMetric: function(id, field, val) { const m = state.metrics.find(x => x.id === id); if (m) m[field] = val; this.generateSQL(); },
+
+            // --- Joins ---
+            renderJoinsUI: function() {
+                const container = document.getElementById('joinConfigList');
+                if (state.joins.length === 0) {
+                    container.innerHTML = `<div class="text-center text-[11px] text-gray-400 py-4 bg-gray-50 border border-dashed border-gray-200 rounded-lg">기준 테이블 외에 다른 테이블 컬럼을 사용하면 여기에 조인이 표시됩니다.</div>`;
+                    return;
+                }
+
+                const allTables = Object.keys(DB_SCHEMA);
+                
+                container.innerHTML = state.joins.map(j => {
+                    const fromOptions = allTables.map(t => `<option value="${t}" ${t === j.fromTable ? 'selected' : ''}>${t}</option>`).join('');
+                    const toOptions = allTables.map(t => `<option value="${t}" ${t === j.toTable ? 'selected' : ''}>${t}</option>`).join('');
+
+                    return `
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm fade-in">
+                        <div class="flex items-center gap-2 mb-2">
+                            <select onchange="app.updateJoin(${j.id}, 'type', this.value)" class="text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-300 rounded p-1 outline-none">
+                                <option value="LEFT JOIN" ${j.type === 'LEFT JOIN' ? 'selected' : ''}>LEFT JOIN</option>
+                                <option value="INNER JOIN" ${j.type === 'INNER JOIN' ? 'selected' : ''}>INNER JOIN</option>
+                                <option value="RIGHT JOIN" ${j.type === 'RIGHT JOIN' ? 'selected' : ''}>RIGHT JOIN</option>
+                                <option value="UNION ALL" ${j.type === 'UNION ALL' ? 'selected' : ''}>UNION ALL</option>
+                            </select>
+                            <i class="fas fa-arrow-right text-gray-400 text-[10px]"></i>
+                            <select onchange="app.updateJoin(${j.id}, 'toTable', this.value)" class="text-xs border border-gray-300 rounded p-1 flex-1 outline-none">
+                                <option value="">대상 테이블 선택</option>${toOptions}
+                            </select>
+                            <button onclick="app.removeJoin(${j.id})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                        
+                        ${j.type !== 'UNION ALL' ? `
+                            <div class="bg-white border border-gray-200 rounded p-2 text-xs">
+                                <div class="font-bold text-gray-600 mb-1 flex justify-between items-center">
+                                    <span><i class="fas fa-link text-gray-400"></i> ON 조건</span>
+                                    <button onclick="app.addJoinCondition(${j.id})" class="text-[10px] text-blue-500 hover:text-blue-700 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5"><i class="fas fa-plus"></i> AND</button>
+                                </div>
+                                <div class="space-y-1">
+                                    ${j.conditions.map((cond, idx) => {
+                                        const fCols = j.fromTable && DB_SCHEMA[j.fromTable] ? Object.keys(DB_SCHEMA[j.fromTable].cols).map(c=>`<option value="${c}" ${c===cond.fromCol?'selected':''}>${c}</option>`).join('') : '<option value="">컬럼</option>';
+                                        const tCols = j.toTable && DB_SCHEMA[j.toTable] ? Object.keys(DB_SCHEMA[j.toTable].cols).map(c=>`<option value="${c}" ${c===cond.toCol?'selected':''}>${c}</option>`).join('') : '<option value="">컬럼</option>';
+                                        return `
+                                        <div class="flex items-center gap-1">
+                                            ${idx > 0 ? '<span class="text-[10px] font-bold text-purple-600 bg-purple-50 px-1 rounded">AND</span>' : ''}
+                                            <select class="w-16 border border-gray-200 bg-gray-50 text-[9px] rounded p-1 outline-none text-gray-500 truncate" onchange="app.updateJoin(${j.id}, 'fromTable', this.value)">
+                                                ${fromOptions}
+                                            </select>
+                                            <span class="text-gray-400">.</span>
+                                            <select onchange="app.updateJoinCondition(${j.id}, ${idx}, 'fromCol', this.value)" class="border border-gray-300 rounded p-1 outline-none flex-1 truncate">
+                                                <option value="">컬럼선택</option>${fCols}
+                                            </select>
+                                            <span class="text-gray-500 font-bold">=</span>
+                                            <select onchange="app.updateJoinCondition(${j.id}, ${idx}, 'toCol', this.value)" class="border border-gray-300 rounded p-1 outline-none flex-1 truncate">
+                                                <option value="">대상컬럼</option>${tCols}
+                                            </select>
+                                            <button onclick="app.removeJoinCondition(${j.id}, ${idx})" class="text-gray-400 hover:text-red-500 ml-0.5"><i class="fas fa-times"></i></button>
+                                        </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    `;
+                }).join('');
+            },
+            addJoin: function() { state.joins.push({ id: Date.now(), type: 'LEFT JOIN', fromTable: state.baseTable, toTable: '', conditions: [{ fromCol: '', toCol: '' }] }); this.renderJoinsUI(); this.generateSQL(); },
+            removeJoin: function(id) { state.joins = state.joins.filter(j => j.id !== id); this.renderJoinsUI(); this.generateSQL(); },
+            updateJoin: function(id, field, val) { const j = state.joins.find(x => x.id === id); if(j) j[field] = val; this.renderJoinsUI(); this.generateSQL(); },
+            addJoinCondition: function(id) { const j = state.joins.find(x => x.id === id); if(j) j.conditions.push({ fromCol: '', toCol: '' }); this.renderJoinsUI(); this.generateSQL(); },
+            updateJoinCondition: function(id, idx, field, val) { const j = state.joins.find(x => x.id === id); if(j) j.conditions[idx][field] = val; this.generateSQL(); },
+            removeJoinCondition: function(id, idx) { const j = state.joins.find(x => x.id === id); if(j) { j.conditions.splice(idx, 1); if(j.conditions.length===0) j.conditions.push({fromCol:'',toCol:''}); } this.renderJoinsUI(); this.generateSQL(); },
+
+            // --- Filters ---
+            renderFilters: function() {
+                const container = document.getElementById('filterList');
+                if (!container) return;
+                if (state.filters.length === 0) { container.innerHTML = ''; return; }
+                
+                const activeTables = Array.from(this.getActiveTables());
+                
+                container.innerHTML = state.filters.map((f, i) => {
+                    const tableOpts = activeTables.map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
+                    const colOpts = f.table && DB_SCHEMA[f.table] ? Object.keys(DB_SCHEMA[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('') : '<option value="">테이블 먼저 선택</option>';
+                    
+                    return `
+                    <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-sm fade-in">
+                        <div class="flex items-center gap-2 mb-2">
+                            ${i > 0 ? `
+                                <select onchange="app.updateFilter(${i}, 'logic', this.value)" class="text-[10px] border border-gray-300 rounded p-1 bg-white font-bold text-blue-600 outline-none">
+                                    <option value="AND" ${f.logic === 'AND' ? 'selected' : ''}>AND</option>
+                                    <option value="OR" ${f.logic === 'OR' ? 'selected' : ''}>OR</option>
+                                </select>
+                            ` : '<span class="text-[10px] font-bold text-gray-500 w-12 text-center bg-gray-200 rounded p-1">WHERE</span>'}
+                            
+                            <select onchange="app.updateFilter(${i}, 'type', this.value)" class="text-[10px] border border-gray-300 rounded p-1 bg-white outline-none focus:border-purple-500 font-bold text-purple-700">
+                                <option value="WHERE" ${f.type === 'WHERE' ? 'selected' : ''}>일반 필터</option>
+                                <option value="HAVING_SUM" ${f.type === 'HAVING_SUM' ? 'selected' : ''}>SUM (HAVING)</option>
+                                <option value="HAVING_COUNT" ${f.type === 'HAVING_COUNT' ? 'selected' : ''}>COUNT (HAVING)</option>
+                                <option value="HAVING_COUNT_DISTINCT" ${f.type === 'HAVING_COUNT_DISTINCT' ? 'selected' : ''}>COUNT(DIST) (HAVING)</option>
+                                <option value="HAVING_AVG" ${f.type === 'HAVING_AVG' ? 'selected' : ''}>AVG (HAVING)</option>
+                            </select>
+                            <button onclick="app.removeFilter(${i})" class="ml-auto text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
+                                <option value="">테이블 선택</option>${tableOpts}
+                            </select>
+                            <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
+                                <option value="">컬럼 선택</option>${colOpts}
+                            </select>
+                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-16 text-center">
+                                <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
+                                <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
+                                <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
+                                <option value=">=" ${f.op === '>=' ? 'selected' : ''}>&gt;=</option>
+                                <option value="<" ${f.op === '<' ? 'selected' : ''}>&lt;</option>
+                                <option value="<=" ${f.op === '<=' ? 'selected' : ''}>&lt;=</option>
+                                <option value="IN" ${f.op === 'IN' ? 'selected' : ''}>IN</option>
+                                <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
+                            </select>
+                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-purple-500 font-mono text-gray-700" placeholder="'값'">
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            },
+            addFilter: function() { const active = Array.from(this.getActiveTables()); state.filters.push({ table: active[0]||'', col: '', type: 'WHERE', op: '=', val: "''", logic: 'AND' }); this.renderFilters(); },
+            updateFilter: function(i, field, val) { state.filters[i][field] = val; if (field === 'table') { state.filters[i].col = ''; this.renderFilters(); } this.generateSQL(); },
+            removeFilter: function(i) { state.filters.splice(i, 1); this.renderFilters(); this.generateSQL(); },
+            updateDate: function() { state.dateRange.start = document.getElementById('dateStart').value; state.dateRange.end = document.getElementById('dateEnd').value; this.generateSQL(); },
+
+            // --- SQL Generation ---
+            generateSQL: function() {
+                const out = document.getElementById('sqlOutput');
+                
+                if (!state.baseTable) {
+                    out.innerHTML = `<span class="token-comment">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="token-keyword">SELECT</span> \n    * \n<span class="token-keyword">FROM</span> dual;`;
+                    return;
+                }
+
+                const activeTables = this.getActiveTables();
+                state.aliases = {};
+                const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+                let aliasIdx = 0;
+                activeTables.forEach(t => { state.aliases[t] = alphabet[aliasIdx++]; });
+
+                let sql = `<span class="token-keyword">SELECT</span>\n`;
+                const selects = [];
+                const groupBys = [];
+
+                // Dimensions (SELECT & GROUP BY)
+                state.dimensions.forEach(d => {
+                    const aliasPrefix = state.aliases[d.table] ? `${state.aliases[d.table]}.` : '';
+                    
+                    if (d.showBucket && d.buckets && d.buckets.length > 0) {
+                        let caseStr = `<span class="token-keyword">CASE</span>\n`;
+                        let colExpr = d.bucketAgg ? `<span class="token-function">${d.bucketAgg}</span>(${aliasPrefix}${d.col})` : `${aliasPrefix}${d.col}`;
+
+                        d.buckets.forEach(b => {
+                            caseStr += `        <span class="token-keyword">WHEN</span> ${colExpr} ${b.op} ${b.val} <span class="token-keyword">THEN</span> '<span class="token-string">${b.label}</span>'\n`;
+                        });
+                        caseStr += `        <span class="token-keyword">ELSE</span> '<span class="token-string">${d.elseLabel || '기타'}</span>'\n`;
+                        caseStr += `    <span class="token-keyword">END</span>`;
+
+                        const bucketAlias = `${d.col}_bucket`;
+                        selects.push(`    ${caseStr} <span class="token-keyword">AS</span> ${bucketAlias}`);
+                        
+                        // 집계함수(SUM, COUNT 등) 기반 구간화는 GROUP BY 제외
+                        if (!d.bucketAgg) {
+                            groupBys.push(`    ${bucketAlias}`); // Alias 사용 (Hive 지원)
+                        }
+                    } else {
+                        selects.push(`    ${aliasPrefix}${d.col}`);
+                        groupBys.push(`    ${aliasPrefix}${d.col}`);
+                    }
+                });
+
+                // Metrics (SELECT)
+                state.metrics.forEach(m => {
+                    if (m.isCalc) {
+                        let parsed = m.formula;
+                        Object.keys(state.aliases).forEach(tName => {
+                            parsed = parsed.replace(new RegExp(`\\b${tName}\\.`, 'g'), `${state.aliases[tName]}.`);
+                        });
+                        selects.push(`    ${parsed} <span class="token-keyword">AS</span> ${m.alias}`);
+                    } else {
+                        const aliasPrefix = state.aliases[m.table] ? `${state.aliases[m.table]}.` : '';
+                        if (m.agg === 'COUNT_DISTINCT') {
+                            selects.push(`    <span class="token-function">COUNT</span>(<span class="token-keyword">DISTINCT</span> ${aliasPrefix}${m.col}) <span class="token-keyword">AS</span> cnt_dist_${m.col}`);
+                        } else {
+                            selects.push(`    <span class="token-function">${m.agg}</span>(${aliasPrefix}${m.col}) <span class="token-keyword">AS</span> ${m.agg.toLowerCase()}_${m.col}`);
+                        }
+                    }
+                });
+
+                if (selects.length === 0) { sql += `    *\n`; } else { sql += selects.join(',\n') + '\n'; }
+
+                // FROM
+                sql += `<span class="token-keyword">FROM</span> ${DB_SCHEMA[state.baseTable].db} ${state.aliases[state.baseTable]}\n`;
+
+                // JOINS
+                state.joins.forEach(j => {
+                    if (!j.fromTable || !j.toTable) return;
+                    if (j.type === 'UNION ALL') {
+                        sql += `<span class="token-keyword">UNION ALL</span>\n<span class="token-keyword">SELECT</span> ... <span class="token-keyword">FROM</span> ${DB_SCHEMA[j.toTable].db} ${state.aliases[j.toTable]}\n`;
+                    } else {
+                        sql += `<span class="token-keyword">${j.type}</span> ${DB_SCHEMA[j.toTable].db} ${state.aliases[j.toTable]}\n`;
+                        const ons = j.conditions.map((c, i) => {
+                            if (!c.fromCol || !c.toCol) return '';
+                            return `    ${i===0 ? '<span class="token-keyword">ON</span>' : '<span class="token-keyword">AND</span>'} ${state.aliases[j.fromTable]}.${c.fromCol} = ${state.aliases[j.toTable]}.${c.toCol}`;
+                        }).filter(Boolean);
+                        
+                        if (ons.length > 0) sql += ons.join('\n') + '\n';
+                        else sql += `    <span class="token-keyword">ON</span> 1=1 <span class="token-comment">-- 조건 없음</span>\n`;
+                    }
+                });
+
+                // WHERE
+                const wheres = [];
+                if (state.dateRange.start && state.dateRange.end) {
+                    let start = state.dateRange.start.replace(/-/g, '');
+                    let end = state.dateRange.end.replace(/-/g, '');
+                    if (state.baseTable === 'AD_KEYWORD') { start += '02'; end += '02'; }
+                    wheres.push(`${state.aliases[state.baseTable]}.${DB_SCHEMA[state.baseTable].part} <span class="token-keyword">BETWEEN</span> '${start}' <span class="token-keyword">AND</span> '${end}'`);
+                }
+
+                const havings = [];
+                state.filters.forEach((f) => {
+                    if (!f.table || !f.col) return;
+                    const aPrefix = `${state.aliases[f.table]}.${f.col}`;
+                    let expr = `${aPrefix} ${f.op} ${f.val}`;
+                    
+                    if (f.type.startsWith('HAVING')) {
+                        let hFunc = f.type.split('_')[1]; // SUM, COUNT
+                        if(f.type === 'HAVING_COUNT_DISTINCT') hFunc = 'COUNT(DISTINCT ';
+                        expr = f.type === 'HAVING_COUNT_DISTINCT' ? `${hFunc}${aPrefix}) ${f.op} ${f.val}` : `${hFunc}(${aPrefix}) ${f.op} ${f.val}`;
+                        havings.push({ logic: f.logic, expr });
+                    } else {
+                        wheres.push({ logic: f.logic, expr });
+                    }
+                });
+
+                if (wheres.length > 0) {
+                    sql += `<span class="token-keyword">WHERE</span>\n`;
+                    wheres.forEach((w, i) => {
+                        sql += `    ${i > 0 ? `<span class="token-keyword">${w.logic || 'AND'}</span> ` : ''}${typeof w === 'string' ? w : w.expr}\n`;
+                    });
+                }
+
+                // GROUP BY
+                if (groupBys.length > 0 && (state.metrics.length > 0 || selects.some(s => s.includes('COUNT') || s.includes('SUM')))) {
+                    sql += `<span class="token-keyword">GROUP BY</span>\n${groupBys.join(',\n')}\n`;
+                }
+
+                // HAVING
+                if (havings.length > 0) {
+                    sql += `<span class="token-keyword">HAVING</span>\n`;
+                    havings.forEach((h, i) => {
+                        sql += `    ${i > 0 ? `<span class="token-keyword">${h.logic}</span> ` : ''}${h.expr}\n`;
+                    });
+                }
+
+                out.innerHTML = sql;
+            }
+        };
+
+        window.onload = function() { app.init(); };
     </script>
 </body>
 </html>
