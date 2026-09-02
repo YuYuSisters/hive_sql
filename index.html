@@ -367,9 +367,7 @@
             filters: [],    // { id, table, col, op, val, logic }
             dateRange: { start: '', end: '' },
             aliases: {},    // Auto-generated table aliases { 'TABLE_NAME': 'a' }
-            joinPaths: [],   // Calculated joins
-            joinOverrides: {}, // 유저가 직접 덮어씌운 조인 조건 (이제 배열의 배열 형태를 가짐 [[colA1, colB1], [colA2, colB2]])
-            joinTypes: {}    // 커스텀 조인 타입 { 'TABLE_A->TABLE_B': 'INNER JOIN' }
+            joins: []       // { id, type, from, to, conditions: [[fromCol, toCol]] }
         };
 
         let dragItemId = null;
@@ -392,37 +390,44 @@
                 document.getElementById('sqlModal').classList.add('hidden');
             },
 
-            // Parse markdown text and convert to beautiful UI cards
+            // 1. SQL 가독성 향상을 위한 고급 Syntax Highlighting (VS Code Dark Theme Style)
+            syntaxHighlight: function(sql) {
+                return sql
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(/(--.*$)/gm, '<span style="color: #6A9955; font-style: italic;">$1</span>') // 주석
+                    .replace(/('[^']*')/g, '<span style="color: #CE9178;">$1</span>') // 문자열
+                    .replace(/\b(\d+)\b/g, '<span style="color: #B5CEA8;">$1</span>') // 숫자
+                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|UNION|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|WITH|LIMIT)\b/gi, '<span style="color: #569CD6; font-weight: bold;">$1</span>') // 키워드
+                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER|CAST)\b/gi, '<span style="color: #DCDCAA;">$1</span>'); // 함수
+            },
+
             parseAndRenderSqlGuide: function() {
                 const container = document.getElementById('sqlGuideContainer');
                 if(!container) return;
 
                 const blocks = SQL_EXAMPLES_MD.split(/\[질문 예시 \d+\]/);
-                let html = `<div class="space-y-6 max-w-5xl mx-auto">`;
+                let html = `<div class="space-y-8 max-w-5xl mx-auto pb-10">`;
                 
                 blocks.forEach((block, index) => {
-                    if (index === 0) return; // Skip preamble
+                    if (index === 0) return; 
 
                     const parts = block.split(/\[답변 Hive SQL\]/);
                     if (parts.length >= 2) {
                         const questionText = parts[0].trim();
-                        let sqlText = parts[1].trim();
-                        
-                        // Clean up trailing tags if any
-                        sqlText = sqlText.replace(/\[학습 사례 시작\]/g, '').trim();
+                        let sqlText = parts[1].trim().replace(/\[학습 사례 시작\]/g, '').trim();
 
                         const qLines = questionText.split('\n');
                         const title = qLines[0].trim();
                         const desc = qLines.slice(1).join('<br>').trim();
 
                         html += `
-                            <div class="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col">
-                                <div class="bg-blue-50/40 border-b border-gray-200 px-6 py-4">
-                                    <div class="flex items-center gap-3 mb-2">
-                                        <span class="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm shrink-0">예제 ${index}</span>
+                            <div class="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden flex flex-col transition-all hover:shadow-lg">
+                                <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-white">
+                                    <div class="flex items-start gap-3 mb-2">
+                                        <span class="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm shrink-0 mt-0.5">예제 ${index}</span>
                                         <h4 class="text-base font-bold text-gray-800 leading-snug">${title}</h4>
                                     </div>
-                                    ${desc ? `<div class="text-sm text-gray-600 ml-[62px] leading-relaxed mt-1 p-3 bg-white/80 rounded border border-gray-100">${desc}</div>` : ''}
+                                    ${desc ? `<div class="text-sm text-gray-600 ml-[62px] leading-relaxed mt-2 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">${desc}</div>` : ''}
                                 </div>
                                 <div class="relative group bg-[#1e1e1e] flex-1">
                                     <div class="absolute top-0 right-0 p-3 flex justify-end bg-gradient-to-b from-[#1e1e1e] to-transparent w-full z-10">
@@ -430,7 +435,8 @@
                                             <i class="fas fa-copy"></i> SQL 복사
                                         </button>
                                     </div>
-                                    <div class="guide-sql-block text-[13px] text-gray-300 overflow-x-auto p-5 pt-8">${this.syntaxHighlight(sqlText)}</div>
+                                    <!-- 가독성 향상된 코드 블록 -->
+                                    <div class="text-[14px] overflow-x-auto p-6 pt-10 font-mono leading-relaxed tracking-wide" style="color: #d4d4d4; background-color: #1e1e1e; tab-size: 4;">${this.syntaxHighlight(sqlText)}</div>
                                 </div>
                             </div>
                         `;
@@ -438,16 +444,6 @@
                 });
                 html += `</div>`;
                 container.innerHTML = html;
-            },
-
-            syntaxHighlight: function(sql) {
-                // Simple highlighter
-                let res = sql
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|JOIN|LEFT|RIGHT|INNER|ON|AND|OR|AS|IN|BETWEEN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END)\b/gi, '<span class="text-blue-400 font-bold">$1</span>')
-                    .replace(/\b(SUM|COUNT|AVG|MAX|MIN|NVL|COALESCE|IF|SUBSTR|DATE_FORMAT|GET_JSON_OBJECT|SPLIT|REPLACE|LOWER)\b/gi, '<span class="text-green-400">$1</span>')
-                    .replace(/'([^']*)'/g, '<span class="text-yellow-300">\'$1\'</span>');
-                return res;
             },
 
             copyText: function(btn) {
@@ -470,8 +466,7 @@
                 state.metrics = [];
                 state.filters = [];
                 state.dateRange = { start: '', end: '' };
-                state.joinOverrides = {};
-                state.joinTypes = {};
+                state.joins = [];
                 
                 const startEl = document.getElementById('dateStart');
                 const endEl = document.getElementById('dateEnd');
@@ -486,20 +481,18 @@
                 this.renderDimensions();
                 this.renderMetrics();
                 this.renderFilters();
+                this.renderJoinsUI();
                 this.generateSQL();
             },
 
-            // Populate Base Table Dropdown
             renderBaseTableOptions: function() {
                 const select = document.getElementById('baseTableSelect');
                 Object.keys(DB_SCHEMA).forEach(key => {
                     const info = DB_SCHEMA[key];
-                    const icon = info.type === 'fact' ? 'fa-bolt text-yellow-500' : 'fa-cube text-blue-500';
                     select.innerHTML += `<option value="${key}">${key} (${info.name})</option>`;
                 });
             },
 
-            // Render Left Sidebar
             renderSchemaExplorer: function() {
                 const container = document.getElementById('schemaExplorer');
                 container.innerHTML = '';
@@ -527,11 +520,11 @@
                         const colType = table.cols[colName];
                         let icon = 'fa-tag text-gray-400';
                         let badge = '';
-                        let isNum = colType === 'num';
+                        let isNum = colType === 'num' || colType === 'double' || colType === 'bigint' || colType === 'int';
                         
                         if(colType === 'PK') { icon = 'fa-key text-yellow-500'; badge='PK'; }
                         if(colType === 'FK') { icon = 'fa-link text-blue-400'; badge='FK'; }
-                        if(colType === 'num') { icon = 'fa-hashtag text-green-500'; badge='NUM'; }
+                        if(isNum) { icon = 'fa-hashtag text-green-500'; badge='NUM'; }
 
                         html += `
                                 <div class="px-3 py-1.5 pl-8 text-[11px] border-t border-gray-50 flex justify-between items-center group cursor-grab hover:bg-red-50 transition"
@@ -562,7 +555,6 @@
             handleDragStart: function(e, table, col, type) {
                 dragItemData = { table, col, type };
                 e.dataTransfer.effectAllowed = 'copy';
-                // Visual feedback
                 e.target.style.opacity = '0.5';
             },
 
@@ -571,7 +563,7 @@
                     const zone = document.getElementById(id);
                     zone.addEventListener('dragover', (e) => {
                         e.preventDefault();
-                        if (!state.baseTable) return; // Prevent drop if no base table
+                        if (!state.baseTable) return;
                         zone.classList.add('drag-over');
                     });
                     zone.addEventListener('dragleave', (e) => {
@@ -594,17 +586,18 @@
 
                 setupZone('dimensionsList', 'dim', (data) => {
                     state.dimensions.push({ id: Date.now(), ...data });
+                    app.autoAddJoins();
                     app.renderDimensions();
                     app.generateSQL();
                 });
 
                 setupZone('metricsList', 'metric', (data) => {
-                    // Default aggregation
                     let agg = 'SUM';
-                    // 문자/캐릭터형 컬럼인 경우 기본값을 고유값 카운트(COUNT_DISTINCT)로 설정
-                    if(!['num'].includes(DB_SCHEMA[data.table].cols[data.col])) agg = 'COUNT_DISTINCT';
+                    const colType = DB_SCHEMA[data.table].cols[data.col];
+                    if(!['num', 'int', 'bigint', 'double'].includes(colType)) agg = 'COUNT_DISTINCT';
                     
                     state.metrics.push({ id: Date.now(), agg: agg, ...data });
+                    app.autoAddJoins();
                     app.renderMetrics();
                     app.generateSQL();
                 });
@@ -612,15 +605,16 @@
 
             setBaseTable: function(val) {
                 state.baseTable = val;
+                state.joins = []; // 기준 테이블 변경시 조인 초기화
                 
                 if (val) {
-                    const partCol = DB_SCHEMA[val].part;
+                    const info = DB_SCHEMA[val];
+                    const partCol = info.part;
                     const startEl = document.getElementById('dateStart');
                     const endEl = document.getElementById('dateEnd');
                     const labelEl = document.getElementById('partitionLabel');
                     const descEl = document.getElementById('partitionDesc');
 
-                    // 모든 _live_ 테이블은 schema.md 정책 상 기본적으로 YYYYMMDD 를 사용함
                     startEl.type = 'date';
                     endEl.type = 'date';
                     
@@ -638,6 +632,7 @@
                     }
                 }
                 
+                this.autoAddJoins();
                 this.generateSQL();
             },
 
@@ -687,8 +682,6 @@
 
             renderFilters: function() {
                 const container = document.getElementById('filterList');
-                
-                // Get active tables for dropdown
                 const activeTables = this.getActiveTables();
                 
                 container.innerHTML = state.filters.map((f, i) => {
@@ -749,8 +742,9 @@
             updateFilter: function(i, field, val) { 
                 state.filters[i][field] = val; 
                 if (field === 'table') {
-                    state.filters[i].col = ''; // 테이블 변경 시 컬럼 초기화
-                    this.renderFilters(); // 컬럼 목록 드롭다운 리렌더링
+                    state.filters[i].col = ''; 
+                    this.renderFilters(); 
+                    this.autoAddJoins();
                 }
                 this.generateSQL(); 
             },
@@ -770,18 +764,24 @@
                 return tables;
             },
 
-            calculateJoins: function(activeTables) {
-                if (!state.baseTable || activeTables.size <= 1) return [];
-
-                const targets = Array.from(activeTables).filter(t => t !== state.baseTable);
-                const joins = [];
+            // 2. 조인 테이블 및 컬럼 직접 관리 기능
+            autoAddJoins: function() {
+                if (!state.baseTable) return;
+                const activeTables = this.getActiveTables();
                 const joinedTables = new Set([state.baseTable]);
-                const pathsLog = [];
+                
+                state.joins.forEach(j => {
+                    if (j.from) joinedTables.add(j.from);
+                    if (j.to) joinedTables.add(j.to);
+                });
 
-                // BFS to find shortest path to each target
+                const targets = Array.from(activeTables).filter(t => !joinedTables.has(t) && t !== state.baseTable);
+                if (targets.length === 0) return;
+
+                // ERD BFS 탐색하여 없는 조인만 추가
                 for (const target of targets) {
                     if (joinedTables.has(target)) continue;
-
+                    
                     const queue = [[state.baseTable]];
                     const visited = new Set([state.baseTable]);
                     let pathFound = null;
@@ -805,18 +805,17 @@
                     }
 
                     if (pathFound) {
-                        // Construct joins for this path
                         for (let i = 0; i < pathFound.length - 1; i++) {
                             const from = pathFound[i];
                             const to = pathFound[i+1];
-                            
                             if (!joinedTables.has(to)) {
-                                // Find the specific rule
                                 const rule = ERD_GRAPH[from].find(r => r.target === to);
-                                joins.push({
+                                state.joins.push({
+                                    id: 'join_' + Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                                    type: 'LEFT JOIN',
                                     from: from,
                                     to: to,
-                                    on: rule.on
+                                    conditions: [ [...rule.on] ]
                                 });
                                 joinedTables.add(to);
                             }
@@ -825,112 +824,159 @@
                         console.warn(`Warning: No ERD path found from ${state.baseTable} to ${target}`);
                     }
                 }
-
-                return joins;
+                
+                this.renderJoinsUI();
             },
 
-            renderJoinsUI: function(joins) {
+            addJoin: function() {
+                state.joins.push({
+                    id: 'join_' + Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                    type: 'LEFT JOIN',
+                    from: state.baseTable || '',
+                    to: '',
+                    conditions: [['', '']]
+                });
+                this.renderJoinsUI();
+                this.generateSQL();
+            },
+
+            removeJoin: function(id) {
+                state.joins = state.joins.filter(j => j.id !== id);
+                this.renderJoinsUI();
+                this.generateSQL();
+            },
+
+            updateJoinProp: function(id, prop, val) {
+                const join = state.joins.find(j => j.id === id);
+                if (join) {
+                    join[prop] = val;
+                    if (prop === 'from' || prop === 'to') {
+                        join.conditions = [['', '']]; // 테이블 변경 시 조건 초기화
+                    }
+                }
+                this.renderJoinsUI();
+                this.generateSQL();
+            },
+
+            addJoinCond: function(id) {
+                const join = state.joins.find(j => j.id === id);
+                if (join) {
+                    join.conditions.push(['', '']);
+                }
+                this.renderJoinsUI();
+                this.generateSQL();
+            },
+
+            removeJoinCond: function(id, idx) {
+                const join = state.joins.find(j => j.id === id);
+                if (join && join.conditions.length > 1) {
+                    join.conditions.splice(idx, 1);
+                }
+                this.renderJoinsUI();
+                this.generateSQL();
+            },
+
+            updateJoinCond: function(id, idx, side, val) {
+                const join = state.joins.find(j => j.id === id);
+                if (join) {
+                    join.conditions[idx][side] = val;
+                }
+                this.generateSQL();
+            },
+
+            renderJoinsUI: function() {
                 const section = document.getElementById('joinConfigSection');
                 const container = document.getElementById('joinConfigList');
-                const statusDiv = document.getElementById('joinStatus'); 
-                
-                if (!joins || joins.length === 0) {
-                    section.style.display = 'none';
-                    statusDiv.innerHTML = '추가된 조인 없음';
-                    return;
-                }
-                
-                section.style.display = 'block';
-                const pathsLog = [];
+                const statusDiv = document.getElementById('joinStatus');
 
-                container.innerHTML = joins.map(j => {
-                    const key = `${j.from}->${j.to}`;
-                    // 조인 조건이 오버라이드 되어있으면 사용, 아니면 기본 조인키 배열을 2차원 배열로 감싸서 사용
-                    const conditions = state.joinOverrides[key] || [ [...j.on] ];
-                    const currentJoinType = state.joinTypes[key] || 'LEFT JOIN';
-                    
-                    const currentOn = conditions[0]; // 대표 첫번째 조인키 표시용
-                    const extraConds = conditions.length > 1 ? ` (+${conditions.length - 1}조건)` : '';
-                    pathsLog.push(`${j.from} <i class="fas fa-arrow-right mx-1 text-gray-600"></i> ${j.to} <span class="text-[9px] text-gray-600 ml-1">ON ${currentOn[0]}=${currentOn[1]}${extraConds}</span>`);
-
-                    let joinHtml = `<div class="bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-sm mb-3">`;
-                    
-                    // Header for this join path
-                    joinHtml += `
-                        <div class="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
-                            <span class="text-xs font-bold text-gray-700 flex items-center gap-2">
-                                <select onchange="app.updateJoinType('${key}', this.value)" class="text-[10px] border border-purple-300 rounded p-1 font-bold text-purple-700 bg-purple-50 outline-none">
-                                    <option value="LEFT JOIN" ${currentJoinType === 'LEFT JOIN' ? 'selected' : ''}>LEFT JOIN</option>
-                                    <option value="INNER JOIN" ${currentJoinType === 'INNER JOIN' ? 'selected' : ''}>INNER JOIN</option>
-                                    <option value="RIGHT JOIN" ${currentJoinType === 'RIGHT JOIN' ? 'selected' : ''}>RIGHT JOIN</option>
-                                    <option value="UNION" ${currentJoinType === 'UNION' ? 'selected' : ''}>UNION</option>
-                                </select>
-                                <span class="truncate w-24 text-right" title="${j.from}">${j.from}</span>
-                                <i class="fas fa-arrow-right text-gray-400"></i>
-                                <span class="truncate w-28" title="${j.to}">${j.to}</span>
-                            </span>
-                            <button onclick="app.addJoinCondition('${key}', '${j.on[0]}', '${j.on[1]}')" class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1.5 rounded border border-blue-200 hover:bg-blue-100 font-medium transition flex items-center">
-                                <i class="fas fa-plus mr-1"></i> 조건 추가
+                // Update UI frame
+                document.getElementById('joinConfigSection').outerHTML = `
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm" id="joinConfigSection" style="display: ${(!state.baseTable && state.joins.length === 0) ? 'none' : 'block'};">
+                        <div class="flex justify-between items-center mb-3 border-b border-gray-100 pb-3">
+                            <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-link text-blue-500"></i> 조인 조건 설정 (Join Configuration)
+                            </h2>
+                            <button onclick="app.addJoin()" class="text-[11px] bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 font-bold transition flex items-center shadow-sm">
+                                <i class="fas fa-plus mr-1"></i> 조인 테이블 추가
                             </button>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mb-3 leading-relaxed">테이블을 필터나 측정값에 드래그하면 ERD를 바탕으로 조인이 자동 생성됩니다.<br>필요한 경우 아래에서 조인 대상 테이블과 조건을 직접 선택하여 자유롭게 수정하세요.</p>
+                        <div id="joinConfigList" class="space-y-3 flex flex-col">
+                            <!-- Joins injected here -->
+                        </div>
+                    </div>
+                `;
+                
+                const newContainer = document.getElementById('joinConfigList');
+                let pathsLog = [];
+                const allTables = Object.keys(DB_SCHEMA);
+                const tableOptions = (selected) => allTables.map(t => `<option value="${t}" ${t===selected?'selected':''}>${t}</option>`).join('');
+
+                newContainer.innerHTML = state.joins.map((j, index) => {
+                    pathsLog.push(`${j.from || '?'} <i class="fas fa-arrow-right mx-1 text-gray-600"></i> ${j.to || '?'}`);
+
+                    let joinHtml = `<div class="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm relative fade-in">`;
+                    
+                    joinHtml += `<button onclick="app.removeJoin('${j.id}')" class="absolute top-3 right-3 text-gray-400 hover:text-red-500 bg-white rounded p-1 shadow-sm"><i class="fas fa-trash-alt"></i></button>`;
+
+                    joinHtml += `
+                        <div class="flex items-center gap-2 mb-3 pr-8">
+                            <select onchange="app.updateJoinProp('${j.id}', 'type', this.value)" class="text-xs border border-purple-300 rounded p-2 font-bold text-purple-700 bg-purple-50 outline-none focus:ring-2 focus:ring-purple-200">
+                                <option value="LEFT JOIN" ${j.type === 'LEFT JOIN' ? 'selected' : ''}>LEFT JOIN</option>
+                                <option value="INNER JOIN" ${j.type === 'INNER JOIN' ? 'selected' : ''}>INNER JOIN</option>
+                                <option value="RIGHT JOIN" ${j.type === 'RIGHT JOIN' ? 'selected' : ''}>RIGHT JOIN</option>
+                                <option value="UNION ALL" ${j.type === 'UNION ALL' ? 'selected' : ''}>UNION ALL</option>
+                            </select>
+                            <select onchange="app.updateJoinProp('${j.id}', 'from', this.value)" class="text-xs font-bold border border-gray-300 rounded p-2 flex-1 bg-white outline-none focus:border-blue-500">
+                                <option value="">기준 테이블 선택</option>
+                                ${tableOptions(j.from)}
+                            </select>
+                            <i class="fas fa-link text-gray-400 text-sm"></i>
+                            <select onchange="app.updateJoinProp('${j.id}', 'to', this.value)" class="text-xs font-bold border border-gray-300 rounded p-2 flex-1 bg-white outline-none focus:border-blue-500">
+                                <option value="">조인 대상 테이블 선택</option>
+                                ${tableOptions(j.to)}
+                            </select>
                         </div>
                     `;
 
-                    // Condition Rows
-                    joinHtml += `<div class="space-y-2">`;
-                    conditions.forEach((cond, idx) => {
-                        const fromCols = `<option value="">컬럼 선택</option>` + Object.keys(DB_SCHEMA[j.from].cols).map(c => `<option value="${c}" ${cond[0] === c ? 'selected' : ''}>${c}</option>`).join('');
-                        const toCols = `<option value="">컬럼 선택</option>` + Object.keys(DB_SCHEMA[j.to].cols).map(c => `<option value="${c}" ${cond[1] === c ? 'selected' : ''}>${c}</option>`).join('');
+                    if (j.type !== 'UNION ALL') {
+                        joinHtml += `<div class="space-y-2 bg-white p-3 rounded border border-gray-100">`;
+                        j.conditions.forEach((cond, idx) => {
+                            const fromCols = j.from ? Object.keys(DB_SCHEMA[j.from].cols).map(c => `<option value="${c}" ${cond[0] === c ? 'selected' : ''}>${c}</option>`).join('') : '';
+                            const toCols = j.to ? Object.keys(DB_SCHEMA[j.to].cols).map(c => `<option value="${c}" ${cond[1] === c ? 'selected' : ''}>${c}</option>`).join('') : '';
 
+                            joinHtml += `
+                                <div class="flex items-center gap-2 text-xs">
+                                    ${idx > 0 ? '<span class="text-[10px] font-bold text-purple-600 w-8 text-center bg-purple-100 rounded px-1 py-0.5">AND</span>' : '<span class="w-8 text-[11px] font-bold text-gray-500 text-center">ON</span>'}
+                                    <select onchange="app.updateJoinCond('${j.id}', ${idx}, 0, this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-red-500 text-gray-700">
+                                        <option value="">컬럼 선택</option>${fromCols}
+                                    </select>
+                                    <span class="font-bold text-gray-400">=</span>
+                                    <select onchange="app.updateJoinCond('${j.id}', ${idx}, 1, this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-red-500 text-gray-700">
+                                        <option value="">컬럼 선택</option>${toCols}
+                                    </select>
+                                    <button onclick="app.removeJoinCond('${j.id}', ${idx})" class="text-gray-400 hover:text-red-500 px-1 ml-1" title="조건 삭제"><i class="fas fa-times"></i></button>
+                                </div>
+                            `;
+                        });
                         joinHtml += `
-                            <div class="flex items-center gap-2 text-xs fade-in">
-                                ${idx > 0 ? '<span class="text-[10px] font-bold text-purple-600 w-8 text-center bg-purple-100 rounded px-1">AND</span>' : '<span class="w-8 text-[10px] font-bold text-gray-400 text-center">ON</span>'}
-                                <select onchange="app.updateJoin('${key}', ${idx}, 0, this.value, '${j.on[0]}', '${j.on[1]}')" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-red-500">
-                                    ${fromCols}
-                                </select>
-                                <span class="font-bold text-gray-400">=</span>
-                                <select onchange="app.updateJoin('${key}', ${idx}, 1, this.value, '${j.on[0]}', '${j.on[1]}')" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-red-500">
-                                    ${toCols}
-                                </select>
-                                ${idx > 0 ? `<button onclick="app.removeJoinCondition('${key}', ${idx})" class="text-gray-400 hover:text-red-500 px-1 ml-1" title="조건 삭제"><i class="fas fa-times"></i></button>` : '<span class="w-4 ml-1"></span>'}
+                            <div class="pt-1">
+                                <button onclick="app.addJoinCond('${j.id}')" class="text-[10px] bg-gray-50 text-gray-600 px-2 py-1.5 rounded border border-gray-200 hover:bg-gray-100 font-medium transition flex items-center">
+                                    <i class="fas fa-plus mr-1"></i> 조건 추가
+                                </button>
                             </div>
                         `;
-                    });
-                    joinHtml += `</div></div>`;
-                    
+                        joinHtml += `</div>`;
+                    }
+
+                    joinHtml += `</div>`;
                     return joinHtml;
                 }).join('');
 
-                statusDiv.innerHTML = pathsLog.map(p => `<div><i class="fas fa-check text-green-500 mr-1"></i> ${p}</div>`).join('');
-            },
-
-            addJoinCondition: function(key, defaultFrom, defaultTo) {
-                if (!state.joinOverrides[key]) {
-                    // 기존에 커스텀하지 않았다면, 기본 키를 첫 조건으로 넣고 시작
-                    state.joinOverrides[key] = [[defaultFrom, defaultTo]];
+                const newStatusDiv = document.getElementById('joinStatus');
+                if(newStatusDiv) {
+                     newStatusDiv.innerHTML = pathsLog.length > 0 ? pathsLog.map(p => `<div><i class="fas fa-check text-green-500 mr-1"></i> ${p}</div>`).join('') : '추가된 조인 없음';
                 }
-                // 빈 조건을 하나 추가
-                state.joinOverrides[key].push(['', '']);
-                this.generateSQL();
-            },
-
-            removeJoinCondition: function(key, index) {
-                if (state.joinOverrides[key] && state.joinOverrides[key].length > 1) {
-                    state.joinOverrides[key].splice(index, 1);
-                    this.generateSQL();
-                }
-            },
-
-            updateJoin: function(key, index, side, val, defaultFrom, defaultTo) {
-                if (!state.joinOverrides[key]) {
-                    state.joinOverrides[key] = [[defaultFrom, defaultTo]];
-                }
-                state.joinOverrides[key][index][side] = val;
-                this.generateSQL();
-            },
-
-            updateJoinType: function(key, type) {
-                state.joinTypes[key] = type;
-                this.generateSQL();
             },
 
             generateSQL: function() {
@@ -938,24 +984,24 @@
                 
                 if (!state.baseTable) {
                     out.innerHTML = `<span class="text-gray-500">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="text-blue-400 font-bold">SELECT</span> \n    * \n<span class="text-blue-400 font-bold">FROM</span> dual;`;
-                    document.getElementById('joinStatus').innerHTML = '대기 중... (테이블을 추가하세요)';
+                    const statusDiv = document.getElementById('joinStatus');
+                    if (statusDiv) statusDiv.innerHTML = '대기 중... (테이블을 추가하세요)';
                     return;
                 }
 
                 const activeTables = this.getActiveTables();
+                state.joins.forEach(j => {
+                    if (j.from) activeTables.add(j.from);
+                    if (j.to) activeTables.add(j.to);
+                });
                 
-                // Assign Aliases (a, b, c...)
                 state.aliases = {};
                 let aliasIdx = 0;
                 const alphabet = 'abcdefghijklmnopqrstuvwxyz';
                 activeTables.forEach(t => { state.aliases[t] = alphabet[aliasIdx++]; });
 
-                const joins = this.calculateJoins(activeTables);
-                this.renderJoinsUI(joins);
-
                 let sql = `<span class="text-blue-400 font-bold">SELECT</span>\n`;
                 
-                // 1. SELECT clause
                 const selects = [];
                 state.dimensions.forEach(d => {
                     selects.push(`    ${state.aliases[d.table]}.${d.col}`);
@@ -974,22 +1020,19 @@
                     sql += selects.join(',\n') + '\n';
                 }
 
-                // 2. FROM clause
                 const baseDb = DB_SCHEMA[state.baseTable].db;
                 sql += `<span class="text-blue-400 font-bold">FROM</span> ${baseDb} ${state.aliases[state.baseTable]}\n`;
 
-                // 3. JOIN clauses
-                joins.forEach(j => {
-                    const key = `${j.from}->${j.to}`;
-                    const conditions = state.joinOverrides[key] || [ [...j.on] ];
-                    const joinType = state.joinTypes[key] || 'LEFT JOIN';
-                    
-                    if (joinType === 'UNION') {
+                state.joins.forEach(j => {
+                    if (!j.from || !j.to) return; 
+                    const joinType = j.type || 'LEFT JOIN';
+
+                    if (joinType === 'UNION ALL') {
                          sql += `<span class="text-blue-400 font-bold">UNION ALL</span>\n<span class="text-blue-400 font-bold">SELECT</span> ... <span class="text-blue-400 font-bold">FROM</span> ${DB_SCHEMA[j.to].db} ${state.aliases[j.to]}\n`;
                     } else {
                         sql += `<span class="text-blue-400 font-bold">${joinType}</span> ${DB_SCHEMA[j.to].db} ${state.aliases[j.to]}\n`;
                         
-                        const onClauses = conditions.map((cond, idx) => {
+                        const onClauses = j.conditions.map((cond, idx) => {
                             if (!cond[0] || !cond[1]) return '';
                             return `    ${idx === 0 ? '<span class="text-blue-400 font-bold">ON</span>' : '<span class="text-purple-400 font-bold">AND</span>'} ${state.aliases[j.from]}.${cond[0]} = ${state.aliases[j.to]}.${cond[1]}`;
                         }).filter(Boolean);
@@ -997,15 +1040,13 @@
                         if (onClauses.length > 0) {
                             sql += onClauses.join('\n') + '\n';
                         } else {
-                            sql += `    <span class="text-blue-400 font-bold">ON</span> 1=1 -- 설정된 조인 조건 없음\n`;
+                            sql += `    <span class="text-blue-400 font-bold">ON</span> 1=1 <span class="text-gray-500">-- 설정된 조인 조건 없음</span>\n`;
                         }
                     }
                 });
 
-                // 4. WHERE clause
                 const wheres = [];
                 
-                // Partition Date Condition
                 if (state.dateRange.start && state.dateRange.end) {
                     let start = state.dateRange.start.replace(/-/g, '');
                     let end = state.dateRange.end.replace(/-/g, '');
@@ -1019,7 +1060,6 @@
                     wheres.push(`${state.aliases[state.baseTable]}.${partCol} <span class="text-blue-400 font-bold">BETWEEN</span> '${start}' <span class="text-blue-400 font-bold">AND</span> '${end}'`);
                 }
 
-                // User Filters
                 const havingFilters = [];
                 state.filters.forEach((f, idx) => {
                     if (!f.table || !f.col) return;
@@ -1058,13 +1098,11 @@
                     });
                 }
 
-                // 5. GROUP BY clause
                 if (state.dimensions.length > 0 && state.metrics.length > 0) {
                     const groups = state.dimensions.map((d, i) => i + 1).join(', ');
                     sql += `<span class="text-blue-400 font-bold">GROUP BY</span> ${groups}\n`;
                 }
 
-                // 6. HAVING clause
                 if (havingFilters.length > 0) {
                     sql += `<span class="text-blue-400 font-bold">HAVING</span>\n`;
                     havingFilters.forEach((h, i) => {
