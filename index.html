@@ -1224,7 +1224,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                             <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
                                 <option value="">컬럼 선택</option>${colOpts}
                             </select>
-                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-16 text-center">
+                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-20 text-center">
                                 <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
                                 <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
                                 <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
@@ -1232,16 +1232,22 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                 <option value="<" ${f.op === '<' ? 'selected' : ''}>&lt;</option>
                                 <option value="<=" ${f.op === '<=' ? 'selected' : ''}>&lt;=</option>
                                 <option value="IN" ${f.op === 'IN' ? 'selected' : ''}>IN</option>
+                                <option value="NOT IN" ${f.op === 'NOT IN' ? 'selected' : ''}>NOT IN</option>
                                 <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
                             </select>
-                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-purple-500 font-mono text-gray-700" placeholder="'값'">
+                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-purple-500 font-mono text-gray-700" placeholder="${(f.op === 'IN' || f.op === 'NOT IN') ? "예: 'A', 'B' 또는 1, 2" : (f.op === 'LIKE' ? "'%값%'" : "'값'")}">
                         </div>
                     </div>
                     `;
                 }).join('');
             },
             addFilter: function() { const active = Array.from(this.getActiveTables()); this.q().filters.push({ table: active[0]||'', col: '', type: 'WHERE', op: '=', val: "''", logic: 'AND' }); this.renderFilters(); },
-            updateFilter: function(i, field, val) { this.q().filters[i][field] = val; if (field === 'table') { this.q().filters[i].col = ''; this.renderFilters(); } this.generateSQL(); },
+            updateFilter: function(i, field, val) { 
+                this.q().filters[i][field] = val; 
+                if (field === 'table') { this.q().filters[i].col = ''; this.renderFilters(); } 
+                else if (field === 'op') { this.renderFilters(); }
+                this.generateSQL(); 
+            },
             removeFilter: function(i) { this.q().filters.splice(i, 1); this.renderFilters(); this.generateSQL(); },
             updateDate: function() { this.q().dateRange.start = document.getElementById('dateStart').value; this.q().dateRange.end = document.getElementById('dateEnd').value; this.generateSQL(); },
 
@@ -1362,11 +1368,21 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 q.filters.forEach((f) => {
                     if (!f.table || !f.col) return;
                     const aPrefix = `${aliases[f.table]}.${f.col}`;
-                    let expr = `${aPrefix} ${f.op} ${f.val}`;
+                    
+                    let formattedVal = f.val;
+                    if (f.op === 'IN' || f.op === 'NOT IN') {
+                        let tempVal = formattedVal.trim();
+                        // 입력값에 괄호가 없으면 다중값 처리를 위해 자동으로 씌워줍니다.
+                        if (!tempVal.startsWith('(')) tempVal = '(' + tempVal;
+                        if (!tempVal.endsWith(')')) tempVal = tempVal + ')';
+                        formattedVal = tempVal;
+                    }
+
+                    let expr = `${aPrefix} ${f.op} ${formattedVal}`;
                     if (f.type.startsWith('HAVING')) {
                         let hFunc = f.type.split('_')[1];
                         if(f.type === 'HAVING_COUNT_DISTINCT') hFunc = 'COUNT(DISTINCT ';
-                        expr = f.type === 'HAVING_COUNT_DISTINCT' ? `${hFunc}${aPrefix}) ${f.op} ${f.val}` : `${hFunc}(${aPrefix}) ${f.op} ${f.val}`;
+                        expr = f.type === 'HAVING_COUNT_DISTINCT' ? `${hFunc}${aPrefix}) ${f.op} ${formattedVal}` : `${hFunc}(${aPrefix}) ${f.op} ${formattedVal}`;
                         havings.push({ logic: f.logic, expr });
                     } else { wheres.push({ logic: f.logic, expr }); }
                 });
