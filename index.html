@@ -56,185 +56,145 @@
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col overflow-hidden relative">
-        
-        <!-- CTE Tabs Container -->
-        <div class="w-full bg-[#f1f5f9] px-4 pt-2 flex gap-1 border-b border-gray-200 shrink-0 shadow-[inset_0_-1px_0_0_#e2e8f0]" id="tabContainer" style="z-index: 10;">
-            <!-- Tabs injected dynamically -->
+    <main class="flex-1 flex overflow-hidden relative bg-white">
+        <!-- Schema Explorer (Left) -->
+        <aside class="w-64 border-r border-gray-200 flex flex-col bg-gray-50 flex-shrink-0">
+            <div class="p-3 border-b border-gray-200">
+                <div class="relative">
+                    <input type="text" id="searchInput" onkeyup="app.filterSchema()" placeholder="테이블/컬럼 검색..." class="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-red-500 transition">
+                    <i class="fas fa-search absolute left-2.5 top-2 text-gray-400 text-xs"></i>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2" id="schemaExplorer">
+                <!-- Schema tables injected here -->
+            </div>
+        </aside>
+
+        <!-- Center Workspace -->
+        <section class="flex-1 flex flex-col min-w-0 bg-white">
+            <!-- CTE Tabs Container -->
+            <div class="w-full bg-[#f1f5f9] px-4 pt-2 flex gap-1 border-b border-gray-200 shrink-0 shadow-[inset_0_-1px_0_0_#e2e8f0]" id="tabContainer"></div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-5 bg-[#f8fafc]">
+                
+                <!-- STEP 1: Base Table & Partition -->
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg font-bold text-sm text-gray-700 flex items-center gap-2">
+                        <span class="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">1</span>
+                        기준 테이블 및 파티션 설정
+                    </div>
+                    <div class="p-4 grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1"><i class="fas fa-table text-blue-500"></i> 기준 테이블 (Base Table)</label>
+                            <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded p-2 text-sm outline-none focus:border-blue-500 font-medium">
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1" id="partitionLabel"><i class="fas fa-calendar-alt"></i> 파티션 기간</label>
+                            <div class="flex items-center gap-2">
+                                <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded p-2 text-sm flex-1 outline-none focus:border-blue-500">
+                                <span class="text-gray-400">~</span>
+                                <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded p-2 text-sm flex-1 outline-none focus:border-blue-500">
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-1" id="partitionDesc">기준 테이블 선택 시 파티션 정책이 표시됩니다.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Data Fields (Drag & Drop) -->
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg font-bold text-sm text-gray-700 flex items-center gap-2">
+                        <span class="bg-green-100 text-green-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
+                        분석 데이터 설정 (Drag & Drop)
+                    </div>
+                    <div class="p-4 grid grid-cols-2 gap-4">
+                        <!-- Dimensions -->
+                        <div class="border border-gray-200 rounded-lg bg-gray-50 p-3 flex flex-col">
+                            <div class="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1"><i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions) <span class="font-normal text-gray-400 ml-1">GROUP BY</span></div>
+                            <div id="dimensionsList" class="flex-1 min-h-[100px] border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col gap-2 transition-colors"></div>
+                        </div>
+                        <!-- Metrics -->
+                        <div class="border border-gray-200 rounded-lg bg-gray-50 p-3 flex flex-col">
+                            <div class="text-xs font-bold text-gray-700 mb-2 flex items-center justify-between">
+                                <div class="flex items-center gap-1"><i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics) <span class="font-normal text-gray-400 ml-1">SELECT</span></div>
+                                <button onclick="app.addCalcMetric()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100"><i class="fas fa-plus"></i> 수식 추가</button>
+                            </div>
+                            <div id="metricsList" class="flex-1 min-h-[100px] border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col gap-2 transition-colors"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Joins -->
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg font-bold text-sm text-gray-700 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-yellow-100 text-yellow-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">3</span>
+                            조인 조건 설정 (Join Configuration)
+                        </div>
+                        <button onclick="app.addJoin()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100"><i class="fas fa-plus"></i> 조인 추가</button>
+                    </div>
+                    <div class="p-4" id="joinConfigList">
+                        <!-- Joins -->
+                    </div>
+                </div>
+
+                <!-- STEP 4: Filters -->
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg font-bold text-sm text-gray-700 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-purple-100 text-purple-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">4</span>
+                            데이터 필터 (Filters)
+                        </div>
+                        <button onclick="app.addFilter()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100"><i class="fas fa-plus"></i> 필터 추가</button>
+                    </div>
+                    <div class="p-4 flex flex-col gap-2" id="filterList">
+                        <!-- Filters -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SQL Output (Right) -->
+        <aside class="w-1/3 min-w-[300px] border-l border-gray-200 bg-[#1e1e1e] flex flex-col flex-shrink-0 text-white z-10">
+            <div class="p-3 border-b border-gray-700 bg-[#252526] flex justify-between items-center">
+                <span class="text-xs font-bold flex items-center gap-2"><i class="fas fa-terminal text-green-400"></i> 생성된 SQL (Hive)</span>
+                <button onclick="app.copySQL()" class="text-[10px] bg-[#333] hover:bg-[#444] px-2 py-1 rounded border border-gray-600 transition"><i class="fas fa-copy"></i> 복사</button>
+            </div>
+            <div class="flex-1 overflow-auto p-4 vscode-dark text-[13px] leading-relaxed relative">
+                <pre><code id="sqlOutput" class="sql-font whitespace-pre-wrap word-break">-- 쿼리 결과가 여기에 표시됩니다.</code></pre>
+            </div>
+        </aside>
+
+        <!-- Toast -->
+        <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transition-all duration-300 opacity-0 translate-y-2 z-50 pointer-events-none">
+            <i id="toastIcon" class="fas fa-check-circle text-green-400 text-lg"></i>
+            <span id="toastMsg" class="text-sm font-medium">알림 메시지</span>
         </div>
 
-        <div class="flex-1 flex overflow-hidden">
-            <!-- Sidebar (Data Dictionary) -->
-            <aside class="w-72 border-r border-gray-200 bg-white flex flex-col h-full shrink-0 z-10 shadow-sm relative">
-                <div class="p-4 border-b border-gray-100">
-                    <div class="relative">
-                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                        <input type="text" id="searchInput" onkeyup="app.filterSchema()" placeholder="테이블/컬럼 검색..." 
-                               class="w-full text-sm border border-gray-300 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all">
-                    </div>
+        <!-- SQL Guide Modal -->
+        <div id="sqlModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+            <div class="bg-[#1e1e1e] w-11/12 max-w-5xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-[#333]">
+                <div class="flex justify-between items-center px-6 py-4 border-b border-[#333] bg-[#252526]">
+                    <h2 class="text-lg font-bold text-gray-200 flex items-center gap-2">
+                        <i class="fas fa-book text-blue-400"></i> SQL 작성 가이드 (Few-shot Examples)
+                    </h2>
+                    <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-red-400 transition text-xl">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                
-                <div class="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center shadow-inner">
-                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Data Dictionary</span>
-                    <i class="fas fa-sitemap text-gray-400"></i>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-2 space-y-1" id="schemaExplorer">
-                    <!-- Schema items dynamically injected here -->
-                </div>
-            </aside>
-
-            <div class="flex-1 flex flex-col min-w-0 bg-gray-50/50 overflow-y-auto border-r border-gray-200 relative">
-                <div class="max-w-4xl w-full mx-auto p-6 space-y-6">
-                    
-                    <!-- Base Table Selection -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
-                        <div class="absolute -left-2 -top-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 1</div>
-                        <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <i class="fas fa-layer-group text-red-500"></i> 기준 데이터 (Base Table)
-                        </h2>
-                        <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-shadow bg-gray-50 hover:bg-white cursor-pointer text-gray-700">
-                            <!-- Options injected via JS -->
-                        </select>
-                        <p class="text-[11px] text-gray-500 mt-2 ml-1"><i class="fas fa-info-circle"></i> 분석의 중심이 되는 메인 테이블(또는 CTE)을 선택하세요.</p>
-                    </div>
-
-                    <!-- Dimensions & Metrics -->
-                    <div class="grid grid-cols-2 gap-4 relative">
-                        <div class="absolute -left-2 -top-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">STEP 2</div>
-                        
-                        <!-- Dimensions (Group By) -->
-                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
-                            <h2 class="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
-                                <i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions)
-                            </h2>
-                            <p class="text-[10px] text-gray-400 mb-3">데이터를 그룹화할 기준 컬럼을 드래그하세요</p>
-                            
-                            <div id="dimensionsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
-                                <!-- Dimensions injected here -->
-                            </div>
-                        </div>
-
-                        <!-- Metrics (Aggregations) -->
-                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[340px]">
-                            <div class="flex justify-between items-center mb-1">
-                                <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics)
-                                </h2>
-                                <button onclick="app.addCalcMetric()" class="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded border border-green-200 hover:bg-green-100 font-bold transition">
-                                    <i class="fas fa-plus mr-1"></i>수식 추가
-                                </button>
-                            </div>
-                            <p class="text-[10px] text-gray-400 mb-3">수치계산할 컬럼을 드래그하세요</p>
-                            
-                            <div id="metricsList" class="flex-1 border-2 border-dashed border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col gap-2 relative">
-                                <!-- Metrics injected here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Joins Configuration -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
-                        <div class="absolute -left-2 -top-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 3</div>
-                        <div class="flex justify-between items-center mb-4">
-                            <div>
-                                <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <i class="fas fa-link text-yellow-500"></i> 조인 조건 설정 (Joins)
-                                </h2>
-                                <p class="text-[10px] text-gray-400 mt-0.5">컬럼 드래그 시 ERD 기반으로 자동 추가되며, 수동 조작도 가능합니다.</p>
-                            </div>
-                            <button onclick="app.addJoin()" class="text-xs bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded border border-yellow-200 hover:bg-yellow-100 font-medium transition shadow-sm">
-                                <i class="fas fa-plus mr-1"></i> 테이블 조인 추가
-                            </button>
-                        </div>
-
-                        <div id="joinConfigList" class="space-y-3 flex flex-col">
-                            <!-- Joins UI injected here -->
-                        </div>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
-                        <div class="absolute -left-2 -top-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">STEP 4</div>
-                        <div class="flex justify-between items-center mb-4">
-                            <div>
-                                <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <i class="fas fa-filter text-purple-500"></i> 필터 조건 (Filters)
-                                </h2>
-                            </div>
-                            <button onclick="app.addFilter()" class="text-xs bg-purple-50 text-purple-600 px-3 py-1.5 rounded border border-purple-200 hover:bg-purple-100 font-medium transition shadow-sm">
-                                <i class="fas fa-plus mr-1"></i> 조건 추가
-                            </button>
-                        </div>
-
-                        <!-- Mandatory Partition Date -->
-                        <div class="bg-red-50/50 border border-red-100 p-4 rounded-lg mb-4">
-                            <div id="partitionLabel" class="text-xs font-bold text-red-800 mb-2 flex items-center gap-1">
-                                <i class="fas fa-calendar-alt"></i> 파티션 기간 (선택 대기) <span class="text-red-500">*필수</span>
-                            </div>
-                            <div class="flex gap-3 items-center">
-                                <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
-                                <span class="text-gray-400 font-medium">~</span>
-                                <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded-md px-3 py-2 flex-1 text-sm focus:ring-2 focus:ring-red-500 outline-none">
-                            </div>
-                            <p id="partitionDesc" class="text-[10px] text-gray-500 mt-2">기준 테이블을 선택하면 해당 테이블의 파티션 정책에 맞게 포맷팅됩니다.</p>
-                        </div>
-
-                        <!-- Dynamic Filter List -->
-                        <div id="filterList" class="space-y-2">
-                            <!-- Filters injected here -->
-                        </div>
-                    </div>
-
-                </div>
-                <div class="h-10"></div>
-            </div>
-
-            <div class="w-1/3 flex flex-col bg-[#1e1e1e] shrink-0 shadow-2xl z-20 relative">
-                <div class="bg-[#252526] px-5 py-3 border-b border-[#333] flex justify-between items-center">
-                    <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2 tracking-wide">
-                        <i class="fas fa-code text-blue-400"></i> SQL Preview
-                    </h3>
-                    <span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30">Auto-Generated</span>
-                </div>
-                
-                <div class="flex-1 p-5 overflow-auto relative text-[13px] tracking-wide leading-relaxed vscode-dark">
-                    <pre id="sqlOutput" class="whitespace-pre-wrap break-all sql-font">
-<span class="token-comment">-- 기준 테이블을 먼저 선택해 주세요.</span>
-<span class="token-comment">-- (STEP 1부터 순서대로 진행)</span>
-
-<span class="token-keyword">SELECT</span> 
-    * 
-<span class="token-keyword">FROM</span> dual;
-                    </pre>
+                <div class="p-6 overflow-y-auto flex-1 bg-[#1e1e1e]" id="sqlGuideContainer">
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Custom Toast -->
-    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-bold flex items-center gap-3 transition-all duration-300 opacity-0 pointer-events-none z-50">
-        <i id="toastIcon" class="fas fa-info-circle text-blue-400 text-lg"></i>
-        <span id="toastMsg">알림 메시지</span>
-    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <!-- SQL Guide Modal -->
-    <div id="sqlModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center fade-in p-4">
-        <div class="bg-[#1e1e1e] rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden border border-[#333]">
-            <div class="px-6 py-4 border-b border-[#333] flex justify-between items-center bg-[#252526] shrink-0">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-200 flex items-center gap-2"><i class="fas fa-graduation-cap text-blue-400"></i> 실전 Hive SQL 작성 가이드 (9선)</h2>
-                    <p class="text-[11px] text-gray-400 mt-1">실무에서 자주 사용되는 테이블 간 조인 및 집계 쿼리 패턴입니다.</p>
-                </div>
-                <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-white transition w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="flex-1 overflow-auto p-6 bg-[#1e1e1e] space-y-6" id="sqlGuideContainer">
-                <!-- Guide content dynamically generated here -->
-            </div>
-        </div>
-    </div>
-
-    <script>
         const DB_SCHEMA = {
             'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인', part: 'part_date', type: 'dim', cols: { 'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': '' } },
             'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'ad_grp_nm': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'bid_type_val': '', 'bid_amt': 'num', 'mon_imp_time_val': 'num', 'tue_imp_time_val': 'num', 'wed_imp_time_val': 'num', 'thu_imp_time_val': 'num', 'fri_imp_time_val': 'num', 'sat_imp_time_val': 'num', 'sun_imp_time_val': 'num', 'actvtn_yn': '', 'camp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ad_imp_mdia_val': '', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'ai_yn': '' } },
@@ -638,13 +598,21 @@ LEFT JOIN mkr_map on mkr_map.part_date = sell.part_date and sell.id = mkr_map.ad
 LEFT JOIN ad_platform.dbm_dsp_agn agn on mkr_map.part_date = agn.part_date and mkr_map.agn_id = agn.id
 where sell.part_date = 20260720 AND DEL_DT is null;`;
 
-        const app = {
+        let db = null;
+        let auth = null;
+        let userId = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+
+        window.app = {
             tabs: ['main'],
             activeTab: 'main',
             queries: {
                 'main': { id: 'main', name: '메인 쿼리', baseTable: '', dimensions: [], metrics: [], filters: [], joins: [], dateRange: { start: '', end: '' } }
             },
             cteSchemas: {},
+            expandedTables: [], // 추가: 열린 테이블 상태 유지
+            saveTimeout: null, // 추가: 저장 디바운싱
 
             q: function() { return this.queries[this.activeTab]; },
 
@@ -782,6 +750,8 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 this.renderJoinsUI();
                 this.renderFilters();
                 this.generateSQL();
+                
+                this.saveWorkspace(); // UI가 업데이트될 때마다 백그라운드 자동 저장
             },
 
             reset: function() {
@@ -807,7 +777,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 const allSchemas = this.getAllSchemas();
                 
                 Object.keys(allSchemas).forEach(tableName => {
-                    if (tableName === this.activeTab) return; // Hide current CTE from itself to prevent self-loop
+                    if (tableName === this.activeTab) return; // Hide current CTE from itself
 
                     const table = allSchemas[tableName];
                     const isFact = table.type === 'fact';
@@ -815,20 +785,25 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     
                     let iconColor = isFact ? 'text-yellow-500 fa-bolt' : (isCte ? 'text-purple-500 fa-code-branch' : 'text-blue-500 fa-cube');
                     let bgClass = isCte ? 'bg-purple-50' : 'bg-gray-50';
+                    
+                    // 펼침 상태 유지 확인
+                    const isExpanded = this.expandedTables.includes(tableName);
+                    const listDisplay = isExpanded ? 'flex' : 'hidden';
+                    const iconRotate = isExpanded ? '' : '-rotate-90';
 
                     let html = `
                         <div class="mb-1 bg-white rounded border border-gray-200 overflow-hidden schema-table" data-name="${tableName.toLowerCase()}">
                             <div class="px-3 py-2 ${bgClass} flex items-center justify-between cursor-pointer hover:bg-gray-100 transition select-none" onclick="app.toggleCollapse('${tableName}')">
-                                <div class="flex items-center gap-2 overflow-hidden">
+                                <div class="flex items-center gap-2 overflow-hidden pointer-events-none">
                                     <i class="fas ${iconColor} text-[10px]"></i>
                                     <div class="truncate">
                                         <div class="text-[11px] font-bold text-gray-800">${tableName}</div>
                                         <div class="text-[9px] text-gray-400">${table.name}</div>
                                     </div>
                                 </div>
-                                <i class="fas fa-chevron-down text-[9px] text-gray-400 transform transition-transform duration-200" id="icon-${tableName}"></i>
+                                <i class="fas fa-chevron-down text-[9px] text-gray-400 transform transition-transform duration-200 ${iconRotate}" id="icon-${tableName}"></i>
                             </div>
-                            <div class="hidden flex-col bg-white" id="cols-${tableName}">
+                            <div class="${listDisplay} flex-col bg-white" id="cols-${tableName}">
                     `;
                     
                     Object.keys(table.cols).forEach(colName => {
@@ -857,6 +832,10 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     html += `</div></div>`;
                     container.innerHTML += html;
                 });
+                
+                // 렌더링 후 검색어가 남아있다면 필터 재적용
+                const term = document.getElementById('searchInput').value;
+                if (term) setTimeout(() => this.filterSchema(), 0);
             },
 
             filterSchema: function() {
@@ -881,11 +860,23 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
             },
 
             toggleCollapse: function(id) {
+                const idx = this.expandedTables.indexOf(id);
+                if (idx > -1) {
+                    this.expandedTables.splice(idx, 1);
+                } else {
+                    this.expandedTables.push(id);
+                }
+                
                 const el = document.getElementById(`cols-${id}`);
                 const icon = document.getElementById(`icon-${id}`);
-                el.classList.toggle('hidden');
-                el.classList.toggle('flex');
-                icon.classList.toggle('-rotate-90');
+                if (el) {
+                    el.classList.toggle('hidden');
+                    el.classList.toggle('flex');
+                }
+                if (icon) {
+                    icon.classList.toggle('-rotate-90');
+                }
+                this.saveWorkspace(); // 펼침 상태 변경 시 백업
             },
 
             handleDragStart: function(e, table, col, type) {
@@ -1423,6 +1414,41 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
             openSqlExamples: function() { document.getElementById('sqlModal').classList.remove('hidden'); },
             closeSqlExamples: function() { document.getElementById('sqlModal').classList.add('hidden'); },
 
+            // === 데이터 지속성 (Firestore 저장 및 복구) ===
+            saveWorkspace: function() {
+                if (this.saveTimeout) clearTimeout(this.saveTimeout);
+                this.saveTimeout = setTimeout(async () => {
+                    if (!db || !userId) return;
+                    try {
+                        const state = {
+                            tabs: this.tabs,
+                            activeTab: this.activeTab,
+                            queries: this.queries,
+                            expandedTables: this.expandedTables
+                        };
+                        // Rule 1 준수: /artifacts/{appId}/users/{userId}/{collectionName}
+                        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'workspace', 'current');
+                        await setDoc(docRef, state);
+                    } catch(e) { console.error('Workspace save failed', e); }
+                }, 1000); // 잦은 통신을 방지하기 위한 1초 디바운싱
+            },
+
+            loadWorkspace: async function() {
+                if (!db || !userId) return;
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'workspace', 'current');
+                    const snap = await getDoc(docRef);
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        this.tabs = data.tabs || ['main'];
+                        this.activeTab = data.activeTab || 'main';
+                        this.queries = data.queries || {};
+                        this.expandedTables = data.expandedTables || [];
+                        this.showToast('이전 작업 상태를 복원했습니다.');
+                    }
+                } catch(e) { console.error('Workspace load failed', e); }
+            },
+
             syntaxHighlightVSCode: function(sql) {
                 return sql
                     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1488,7 +1514,35 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
             }
         };
 
-        window.onload = function() { app.init(); };
+        // === 앱 초기화 및 Firebase 연동 ===
+        async function bootApp() {
+            try {
+                if (firebaseConfigStr) {
+                    const firebaseConfig = JSON.parse(firebaseConfigStr);
+                    const firebaseApp = initializeApp(firebaseConfig);
+                    auth = getAuth(firebaseApp);
+                    db = getFirestore(firebaseApp);
+
+                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (token) {
+                        await signInWithCustomToken(auth, token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser.uid;
+                    
+                    // 클라우드에서 이전 쿼리 및 UI 상태 로드
+                    await window.app.loadWorkspace();
+                }
+            } catch (error) {
+                console.error("데이터 복원 초기화 실패:", error);
+            } finally {
+                // 성공/실패 여부와 상관없이 쿼리 빌더 실행
+                window.app.init();
+            }
+        }
+
+        window.onload = function() { bootApp(); };
     </script>
 </body>
 </html>
