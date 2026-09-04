@@ -32,6 +32,10 @@
         .token-keyword { color: #569CD6; font-weight: bold; }
         .token-function { color: #DCDCAA; }
         .token-operator { color: #d4d4d4; }
+        
+        /* Draggable Grabs */
+        .cursor-grab { cursor: grab; }
+        .cursor-grabbing { cursor: grabbing; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-gray-800">
@@ -86,15 +90,22 @@
                     <div class="p-4 grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-600 mb-1"><i class="fas fa-table text-blue-500"></i> 기준 테이블 (Base Table)</label>
-                            <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded p-2 text-sm outline-none focus:border-blue-500 font-medium">
+                            <select id="baseTableSelect" onchange="app.setBaseTable(this.value)" class="w-full border border-gray-300 rounded p-2 text-sm outline-none focus:border-blue-500 font-medium text-gray-700">
                             </select>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-600 mb-1" id="partitionLabel"><i class="fas fa-calendar-alt"></i> 파티션 기간</label>
-                            <div class="flex items-center gap-2">
-                                <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded p-2 text-sm flex-1 outline-none focus:border-blue-500">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="date" id="dateStart" onchange="app.updateDate()" class="border border-gray-300 rounded p-1.5 text-sm flex-1 outline-none focus:border-blue-500">
                                 <span class="text-gray-400">~</span>
-                                <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded p-2 text-sm flex-1 outline-none focus:border-blue-500">
+                                <input type="date" id="dateEnd" onchange="app.updateDate()" class="border border-gray-300 rounded p-1.5 text-sm flex-1 outline-none focus:border-blue-500">
+                            </div>
+                            <!-- 퀵 파티션 버튼 영역 -->
+                            <div class="flex gap-2 mb-1">
+                                <button onclick="app.setQuickDate('yesterday')" class="text-[10px] font-bold bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition">어제</button>
+                                <button onclick="app.setQuickDate('last7')" class="text-[10px] font-bold bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition">최근 7일</button>
+                                <button onclick="app.setQuickDate('last30')" class="text-[10px] font-bold bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition">최근 30일</button>
+                                <button onclick="app.setQuickDate('thisMonth')" class="text-[10px] font-bold bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition">이번 달</button>
                             </div>
                             <div class="text-[10px] text-gray-400 mt-1" id="partitionDesc">기준 테이블 선택 시 파티션 정책이 표시됩니다.</div>
                         </div>
@@ -105,21 +116,21 @@
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 rounded-t-lg font-bold text-sm text-gray-700 flex items-center gap-2">
                         <span class="bg-green-100 text-green-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
-                        분석 데이터 설정 (Drag & Drop)
+                        분석 데이터 설정 (Drag & Drop 지원, 위아래 드래그 순서 변경 가능)
                     </div>
                     <div class="p-4 grid grid-cols-2 gap-4">
                         <!-- Dimensions -->
                         <div class="border border-gray-200 rounded-lg bg-gray-50 p-3 flex flex-col">
                             <div class="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1"><i class="fas fa-tags text-blue-500"></i> 분석 기준 (Dimensions) <span class="font-normal text-gray-400 ml-1">GROUP BY</span></div>
-                            <div id="dimensionsList" class="flex-1 min-h-[100px] border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col gap-2 transition-colors"></div>
+                            <div id="dimensionsList" class="flex-1 min-h-[120px] border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col gap-2 transition-colors"></div>
                         </div>
                         <!-- Metrics -->
                         <div class="border border-gray-200 rounded-lg bg-gray-50 p-3 flex flex-col">
                             <div class="text-xs font-bold text-gray-700 mb-2 flex items-center justify-between">
                                 <div class="flex items-center gap-1"><i class="fas fa-calculator text-green-500"></i> 측정값 (Metrics) <span class="font-normal text-gray-400 ml-1">SELECT</span></div>
-                                <button onclick="app.addCalcMetric()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100"><i class="fas fa-plus"></i> 수식 추가</button>
+                                <button onclick="app.addCalcMetric()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100 font-bold"><i class="fas fa-plus"></i> 수식 추가</button>
                             </div>
-                            <div id="metricsList" class="flex-1 min-h-[100px] border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col gap-2 transition-colors"></div>
+                            <div id="metricsList" class="flex-1 min-h-[120px] border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col gap-2 transition-colors"></div>
                         </div>
                     </div>
                 </div>
@@ -131,9 +142,9 @@
                             <span class="bg-yellow-100 text-yellow-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">3</span>
                             조인 조건 설정 (Join Configuration)
                         </div>
-                        <button onclick="app.addJoin()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100"><i class="fas fa-plus"></i> 조인 추가</button>
+                        <button onclick="app.addJoin()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100 font-bold"><i class="fas fa-plus"></i> 조인 추가</button>
                     </div>
-                    <div class="p-4" id="joinConfigList">
+                    <div class="p-4 flex flex-col gap-3" id="joinConfigList">
                         <!-- Joins -->
                     </div>
                 </div>
@@ -145,7 +156,7 @@
                             <span class="bg-purple-100 text-purple-700 w-5 h-5 rounded-full flex items-center justify-center text-xs">4</span>
                             데이터 필터 (Filters)
                         </div>
-                        <button onclick="app.addFilter()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100"><i class="fas fa-plus"></i> 필터 추가</button>
+                        <button onclick="app.addFilter()" class="text-[10px] bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded hover:bg-gray-100 font-bold"><i class="fas fa-plus"></i> 필터 추가</button>
                     </div>
                     <div class="p-4 flex flex-col gap-2" id="filterList">
                         <!-- Filters -->
@@ -155,14 +166,36 @@
             </div>
         </section>
 
-        <!-- SQL Output (Right) -->
-        <aside class="w-1/3 min-w-[300px] border-l border-gray-200 bg-[#1e1e1e] flex flex-col flex-shrink-0 text-white z-10">
-            <div class="p-3 border-b border-gray-700 bg-[#252526] flex justify-between items-center">
-                <span class="text-xs font-bold flex items-center gap-2"><i class="fas fa-terminal text-green-400"></i> 생성된 SQL (Hive)</span>
-                <button onclick="app.copySQL()" class="text-[10px] bg-[#333] hover:bg-[#444] px-2 py-1 rounded border border-gray-600 transition"><i class="fas fa-copy"></i> 복사</button>
+        <!-- Right Sidebar -->
+        <aside class="w-1/3 min-w-[350px] border-l border-gray-200 bg-[#1e1e1e] flex flex-col flex-shrink-0 text-white z-10">
+            <!-- Output Tabs -->
+            <div class="flex bg-[#252526] border-b border-gray-700 shrink-0">
+                <button onclick="app.switchRightTab('sql')" id="tabBtn-sql" class="flex-1 py-2.5 text-[11px] font-bold text-center border-b-2 border-blue-500 text-blue-400 bg-[#1e1e1e] transition-colors"><i class="fas fa-terminal mr-1"></i> SQL 보기</button>
+                <button onclick="app.switchRightTab('mock')" id="tabBtn-mock" class="flex-1 py-2.5 text-[11px] font-bold text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition-colors"><i class="fas fa-table mr-1"></i> 데이터 미리보기</button>
             </div>
-            <div class="flex-1 overflow-auto p-4 vscode-dark text-[13px] leading-relaxed relative">
-                <pre><code id="sqlOutput" class="sql-font whitespace-pre-wrap word-break">-- 쿼리 결과가 여기에 표시됩니다.</code></pre>
+
+            <!-- SQL View -->
+            <div id="view-sql" class="flex-1 flex flex-col overflow-hidden relative">
+                <div class="p-2.5 border-b border-gray-700 bg-[#252526] flex justify-between items-center shrink-0">
+                    <span class="text-[11px] font-bold text-gray-300">생성된 Hive SQL</span>
+                    <button onclick="app.copySQL()" class="text-[10px] bg-gray-700 hover:bg-gray-600 text-gray-200 px-2.5 py-1 rounded border border-gray-600 transition shadow-sm"><i class="fas fa-copy"></i> 복사</button>
+                </div>
+                <div class="flex-1 overflow-auto p-4 vscode-dark text-[13px] leading-relaxed relative">
+                    <pre><code id="sqlOutput" class="sql-font whitespace-pre-wrap break-all">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</code></pre>
+                </div>
+            </div>
+
+            <!-- Mock Data Preview View -->
+            <div id="view-mock" class="flex-1 hidden flex-col overflow-hidden bg-white text-gray-800">
+                <div class="p-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between shrink-0">
+                    <span class="text-[11px] font-bold text-gray-600"><i class="fas fa-bolt text-yellow-500 mr-1"></i> 가상 샘플 데이터 (Mock)</span>
+                    <span class="text-[9px] text-gray-400">※ 실제 데이터가 아닌 프론트엔드 생성 임시값입니다.</span>
+                </div>
+                <div class="flex-1 overflow-auto p-0">
+                    <table class="min-w-full text-[11px] text-left border-collapse" id="mockDataTable">
+                        <!-- Table rendered via JS -->
+                    </table>
+                </div>
             </div>
         </aside>
 
@@ -174,17 +207,17 @@
 
         <!-- SQL Guide Modal -->
         <div id="sqlModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-            <div class="bg-[#1e1e1e] w-11/12 max-w-5xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-[#333]">
-                <div class="flex justify-between items-center px-6 py-4 border-b border-[#333] bg-[#252526]">
-                    <h2 class="text-lg font-bold text-gray-200 flex items-center gap-2">
-                        <i class="fas fa-book text-blue-400"></i> SQL 작성 가이드 (Few-shot Examples)
+            <div class="bg-gray-50 w-11/12 max-w-5xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-300">
+                <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-white">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-book-open text-blue-500"></i> 실무 SQL 작성 가이드 (Few-shot)
                     </h2>
-                    <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-red-400 transition text-xl">
+                    <button onclick="app.closeSqlExamples()" class="text-gray-400 hover:text-red-500 transition text-xl">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="p-6 overflow-y-auto flex-1 bg-[#1e1e1e]" id="sqlGuideContainer">
-                    <!-- Loaded dynamically -->
+                <div class="p-6 overflow-y-auto flex-1 bg-gray-100" id="sqlGuideContainer">
+                    <!-- Dynamically Loaded -->
                 </div>
             </div>
         </div>
@@ -195,22 +228,23 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Full Schema mapping matching schema.md exactly
         const DB_SCHEMA = {
-            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인', part: 'part_date', type: 'dim', cols: { 'dt': '', 'id': 'PK', 'camp_nm': '', 'camp_start_dy': '', 'camp_end_dy': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'actvtn_yn': '', 'ad_seller_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'mig': '', 'ai_objtv_roas': 'num', 'ai_yn': '', 'ai_actvtn_yn': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '', 'ai_flx_dd_allw_bdg_yn': '', 'ai_flx_dd_allw_bdg_amt': 'num', 'ai_flx_dd_allw_bdg_yn_update_dt': '', 'ai_flx_dd_allw_bdg_amt_update_dt': '', 'ai_mng_strtg_type_val': '' } },
-            'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'ad_grp_nm': '', 'dd_allw_bdg_amt': 'num', 'dd_allw_bdg_over_dt': '', 'bid_type_val': '', 'bid_amt': 'num', 'mon_imp_time_val': 'num', 'tue_imp_time_val': 'num', 'wed_imp_time_val': 'num', 'thu_imp_time_val': 'num', 'fri_imp_time_val': 'num', 'sat_imp_time_val': 'num', 'sun_imp_time_val': 'num', 'actvtn_yn': '', 'camp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ad_imp_mdia_val': '', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'ai_yn': '' } },
-            'AD_TARGET': { db: 'ad_platform.dbm_dsp_ad_trgt_live', name: '광고타겟', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'prod_no': 'FK', 'bid_type_val': '', 'bid_amt': 'num', 'keywd_reg_way_val': '', 'actvtn_yn': '', 'ad_grp_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'p_bid_amt': 'num', 'ms_bid_amt': 'num', 'lnkg_impsb_yn': '', 'ai_yn': '' } },
-            'AD_KEYWORD': { db: 'ad_platform.dbm_dsp_ad_keywd_live', name: '키워드입찰', part: 'part_hour', type: 'dim', cols: { 'part_hour': '', 'id': 'PK', 'keywd_nm': '', 'bid_type_val': '', 'bid_amt': 'num', 'actvtn_yn': '', 'ad_trgt_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'rnk_auto_bid_actvtn_yn': '', 'hope_rnk': 'num', 'max_bid_amt': 'num', 'adj_amt': 'num', 'rnk_auto_bid_dt': '', 'expire_dt': '' } },
-            'AGENCY': { db: 'ad_platform.dbm_dsp_agn', name: '대행사', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'agn_nm': '', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num' } },
-            'MARKETER': { db: 'ad_platform.dbm_dsp_mkr', name: '마케터', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'mkr_login_id': '', 'glbl_key_val': 'num', 'extr_mkr_no': '', 'mkr_stat_val': '', 'mkr_auth_type_val': '', 'email_alrm_yn': '', 'cphn_alrm_yn': '', 'etiq_alrm_yn': '', 'email_alrm_agree_dt': '', 'cphn_alrm_agree_dt': '', 'etiq_alrm_agree_dt': '', 'agn_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num' } },
-            'SELLER': { db: 'ad_platform.dbm_dsp_ad_seller', name: '셀러', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'seller_no': 'num', 'biz_no': '', 'seller_id': '', 'rep_seller_yn': '', 'seller_blce_exstn_yn': '', 'mapp_mkr_ent_yn': '', 'adver_mapp_dt': '', 'adver_id': 'num', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'ptnr_yn': '' } },
-            'SELLER_MARKETER_MAP': { db: 'ad_platform.dbm_dsp_ad_seller_mkr_mapp_newest', name: '셀러-마케터매핑', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'id': 'PK', 'ad_seller_mkr_mapp_chg_dy': '', 'ad_seller_id': 'FK', 'mkr_id': 'FK', 'create_dt': '', 'update_dt': '', 'del_dt': '', 'ver_no': 'num', 'gdwl_type': '' } },
-            'PRODUCT': { db: '11st.tb_evs_ods_m_dp_live_prd', name: '전시상품', part: 'part_date', type: 'dim', cols: { 'part_date': '', 'prd_no': 'PK', 'mstr_prd_no': 'num', 'sel_mnbd_no': 'num', 'prd_nm': '', 'wirelss_prd_nm': '', 'advrt_stmt': '', 'sel_bgn_dy': '', 'sel_end_dy': '', 'sel_mthd_cd': '', 'sel_stat_cd': '', 'dlv_cst_pay_typ_cd': '', 'dlv_cst_inst_basi_cd': '', 'snd_pln_trm': 'num', 'prd_stat_cd': '', 'seller_prd_cd': '', 'minor_sel_cn_yn': '', 'abrd_brand_yn': '', 'lctgr_no': 'num', 'mctgr_no': 'num', 'sctgr_no': 'num', 'dctgr_no': 'num', 'std_ctgr_no': 'num', 'mstr_prd_kd_cd': '', 'sel_prc': 'num', 'final_dsc_prc': 'num', 'frgft_yn': '', 'seller_hmpg_nm': '', 'sellershp_img_url': '', 'opt_yn': '', 'prd_evl_tot_qty': 'num', 'prd_tot_evl_scor': 'num', 'buy_satisfy': 'num', 'exprt_review_cnt': 'num', 'nck_nm': '', 'mem_id': '', 'brand_cd': '', 'brand_nm': '', 'best_score': 'num', 'mvp_score': 'num', 'pop_score': 'num', 'is_mvp_yn': '', 'is_premium_item': '', 'premium_item_bgn_dy': '', 'premium_item_end_dy': '', 'is_bg_color_item': '', 'bg_color_item_bgn_dy': '', 'bg_color_item_end_dy': '', 'is_focus_item': '', 'focus_item_bgn_dy': '', 'focus_item_end_dy': '', 'img_url_01': '', 'img_url_typ_01': '', 'img_url_02': '', 'img_url_typ_02': '', 'img_url_03': '', 'img_url_typ_03': '', 'is_srch_yn': '', 'is_disp_yn': '', 'prd_create_dt': '', 'prd_update_dt': '', 'create_dt': '', 'update_dt': '', 'dlv_cupn_cd': '', 'prd_pnt_rt': 'num', 'prd_pnt_add_rt': 'num', 'ocb_zone_rt': 'num', 'low_prc_yn': '', 'prd_pnt_pre_yn': '', 'prd_pnt_pre_rt': 'num', 'cupn_ex_cd': '', 'prd_intfree_yn': '', 'skt_add_pre_yn': '', 'seller_ocb': 'num', 'seller_mileage': 'num', 'multi_qty_dsc_amt': 'num', 'multi_qty_dsc_rt': 'num', 'om_prd_yn': '', 'retail_price': 'num', 'makt_prc': 'num', 'gbl_dlv_yn': '', 'price_nm': '', 'ad_movie_yn': '', 'hope_shp_pnt': 'num', 'itm_cupn_iss_cn_yn': '', 'partner_cupn_ex_yn': '', 'lp_cupn_ex_yn': '', 'dlv_prc': 'num', 'rntl_info_list': '', 'std_prd_nm': '', 'dlv_typ_cd': '', 'seller_typ_cd': '' } },
-            'BID_STATUS': { db: 'share_ad.focus_bid_trgt_total', name: '입찰상태', part: 'dt', type: 'fact', cols: { 'dt': 'PK', 'ai_yn': '', 'seller_no': '', 'ptnr_yn': '', 'adver_id': '', 'ad_seller_id': '', 'ad_camp_id': 'FK', 'ad_grp_id': 'FK', 'ad_trgt_id': 'FK', 'prd_no': 'FK', 'keywd_reg_way_val': '', 'camp_start_dy': '', 'camp_end_dy': '', 'camp_budget': '', 'grp_budget': '', 'imp_mdia_val': '', 'mkr_id': '', 'agn_id': 'FK', 'ms_ba': '', 'p_ba': '', 'grp_ms_ba': '', 'grp_p_ba': '', 'trgt_ms_ba': '', 'trgt_p_ba': '', 'adver_lnkg_yn': '', 'lnkg_impsb_yn': '', 'camp_period_yn': '', 'del_yn': '', 'actvtn_yn': '', 'del_str': '', 'actvtn_str': '', 'live_prd_yn': '', 'balance_yn': '', 'ai_objtv_roas': '', 'ai_excl_prod_yn': '', 'ai_excl_keywd_yn': '' } },
-            'AD_IMPRESSION': { db: 'ad_platform.vine_app_new_ad_logserver_live_parse_v5', name: '노출/클릭', part: 'part_hour', type: 'fact', cols: { 'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'impression': 'num', 'click': 'num', 'id': 'num', 'act_id': '', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'PK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'bid_amount': 'num', 'ppc': 'num', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'dnt_reason': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'FK', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'FK', 'ad_group_type': '', 'ad_target_id': 'FK', 'keyword_id': 'FK', 'placement_id': '', 'quality_score': 'num', 'qs_bucket': '', 'rank_score': 'num', 'ad_selection_type': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'banner_size': '', 'targeting_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'display_rank': 'num', 'partner_seller': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': '' } },
-            'AD_FEE': { db: 'ad_platform.dsp_ad_fee_log_live_parse_v5', name: '과금', part: 'part_hour', type: 'fact', cols: { 'qs_bucket': '', 'part_hour': '', 'action_date': '', 'transaction_type': '', 'valid_cnt': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': '', 'impression_id': 'FK', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'advertising_id_type': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'FK', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'placement_id': '', 'affiliation_seller_key': '', 'affiliation_product_key': 'FK', 'free_point_amount': 'num', 'free_point_tax_amount': 'num', 'non_free_point_amount': 'num', 'non_free_point_tax_amount': 'num', 'cash_amount': 'num', 'cash_tax_amount': 'num', 'pay_result': '', 'paid_date': '', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'dnt_reason': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'limit_over_amount': 'num', 'limit_over_tax_amount': 'num', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'prd_mgrp_no': 'num', 'is_ai': '', 'is_bot': '', 'prd_grp_no': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': '' } },
-            'AD_CONVERSION': { db: 'ad_platform.vine_new_ad_log_cvr_live_v5', name: '전환', part: 'part_hour', type: 'fact', cols: { 'qs_bucket': '', 'part_hour': '', 'log_date': '', 'action_date': '', 'transaction_type': '', 'conversion': 'num', 'id': 'num', 'act_id': 'FK', 'valid_code': 'num', 'invalid_code': 'num', 'response_id': 'FK', 'impression_id': '', 'impression_rank': 'num', 'impression_date': '', 'click_date': '', 'search_keyword': '', 'match_keyword': '', 'keyword_mapping_type': '', 'bid_type': '', 'auid': '', 'idfa': '', 'aaid': '', 'dnt': '', 'ad_unit_id': '', 'device_os_name': '', 'device_os_version': '', 'browser_name': '', 'browser_version': '', 'request_ip': '', 'dsp_id': '', 'agency_id': 'num', 'marketer_id': 'num', 'advertiser_id': 'num', 'seller_id': 'num', 'campaign_id': 'num', 'ad_group_id': 'num', 'ad_target_id': 'num', 'keyword_id': 'num', 'affiliation_seller_key': '', 'affiliation_product_key': '', 'placement_id': '', 'pay_result': '', 'conversion_price': 'num', 'display_category_1_no': '', 'display_category_2_no': '', 'display_category_3_no': '', 'opt_out': '', 'ad_unit_name': '', 'banner_size': '', 'transaction_id': '', 'partner_id': '', 'partner_type': '', 'publisher_id': '', 'channel_id': '', 'reserve_amount': 'num', 'targeting_type': '', 'has_snippet': '', 'search_collection_type': '', 'domain': '', 'app_bundle': '', 'advertising_id_type': '', 'ext_ad_partner_id': '', 'ext_ad_web_ad_unit_id': '', 'ext_ad_app_ad_unit_id': '', 'ext_ad_search_keyword_id': '', 'display_rank': 'num', 'partner_seller': '', 'prd_mgrp_no': '', 'prd_grp_no': '', 'order_product_id': '', 'cvr_type': '', 'affiliation_product_master_key': '', 'affiliation_product_option_key': '', 'fee_type': '', 'pay_type': '', 'is_ai': '', 'contribution_conversion': 'num', 'contribution_conversion_price': 'num', 'virtual_order_no': '', 'is_bot': '', 'prd_grp_type': '', 'bf_cmp': 'num', 'search_hybrid_view_type': '', 'inflow_type': '', 'bucket_type': '' } },
-            'PAYMENT': { db: 'share_ad.trans_ad_rel_base', name: '결제', part: 'dt', type: 'fact', cols: { 'dt': '', 'seller_no': '', 'prd_no': 'FK', 'trns_type_cd': '', 'ptnr_cd': '', 'pay_trns_amt': 'num', 'pay_seller_basic_dscnt_amt_drct': 'num', 'pay_seller_dscnt_amt_basic': 'num', 'pay_svc_use_amt': 'num', 'pay_11st_dscnt_amt': 'num', 'pay_net_sale_amt': 'num', 'cnfrm_trns_amt': 'num', 'cnfrm_seller_basic_dscnt_amt_drct': 'num', 'cnfrm_seller_dscnt_amt_basic': 'num', 'cnfrm_svc_use_amt': 'num', 'cnfrm_11st_dscnt_amt': 'num', 'cnfrm_net_sale_amt': 'num', 'pay_cnt': 'num', 'pay_qty': 'num' } },
-            'SEARCH_LOG': { db: 'search.sch_11st_log_client_base', name: '검색로그', part: 'dt', type: 'fact', cols: { 'dt': '', 'base_time': '', 'poc_cl_cd': '', 'incm_grp': '', 'incm_grp_rank': 'num', 'incm_cl_cd': '', 'incm_cl_cd_grp': '', 'page_type': '', 'keyword': '', 'page_id': '', 'action_id': '', 'prev_keyword': '', 'prev_clk_cnt': 'num', 'keyword_grp_id': '', 'buy_grp_id': '', 'sex_cl_cd': '', 'age_cd': '', 'age_5_grp_cd': '', 'age_10_grp_cd': '', 'fix_yn': '', 'fix_keyword': '', 'local_time': '', 'recv_time': '', 'os_name': '', 'os_version': '', 'resolution': '', 'screen_width': '', 'screen_height': '', 'language_code': '', 'rake_lib': '', 'rake_lib_version': '', 'ip': '', 'token': '', 'log_version': '', 'device_id': '', 'device_model': '', 'manufacturer': '', 'carrier_name': '', 'network_type': '', 'app_release': '', 'app_build_number': '', 'browser_name': '', 'browser_version': '', 'referrer': '', 'url': '', 'document_title': '', 'pcid': '', 'page_version': '', 'service_country_code': '', 'service_language_code': '', 'service_currency_code': '', 'member_no': '', 'unique_key': '', 'tr_cd': '', 'ctgr_no': '', 'birthyear': '', 'pf_clf': '', 'bm_clf': '', 'partner_cd': '', 'advrt_no': '', 'advrt_detail': '', 'ad_nm': '', 'ad_tp_cd': '', 'ad_tp_nm': '', 'alcmpn_cd': '', 'alcmpn_nm': '', 'alcmpn_drct_vst_fg_cd': '', 'alcmpn_drct_vst_fg_nm': '', 'alcmpn_tp_cd': '', 'alcmpn_tp_nm': '', 'alcmpn_fg_cd': '', 'alcmpn_fg_nm': '', 'atrb_code': '', 'session_id': 'PK', 'xsite_session_id': '', 'xsite_session_sch_seq': '', 'eleven_device_id': '', 'auid': '', 'app_page_type': '', 'web_log_version': '', 'reco_side_info': '', 'partner_referrer': '', 'ab_tcs': '', 'search_call_id': '', 'search_result_cnt': '', 'search_view_type': '', 'search_sort_type': '', 'page_no': '', 'search_include_keyword': '', 'search_except_keyword': '', 'search_category_no': '', 'search_brand_code': '', 'search_seller_nos': '', 'search_max_price': 'num', 'search_min_price': 'num', 'search_benefit': '', 'search_attribute': '', 'search_prdtype': '', 'search_shipping': '', 'search_filter_yn': '', 'search_ad_show': '', 'search_no_result_yn': '', 'user_input_keyword': '', 'btn_name': '', 'content_no': '', 'content_name': '', 'link_url': '', 'display_order': 'num', 'position_l1': '', 'position_l2': 'num', 'position_l3': '', 'parent_type': '', 'parent_no': '', 'parent_name': '', 'research_include_keyword': '', 'research_except_keyword': '', 'content_code': '', 'seller_no': '', 'search_custom_yn': '', 'search_custom_key': '', 'current_product_no': '', 'trace_meta_category_no': '', 'content_type': '', 'product_no': 'FK', 'display_category_no': '', 'group_product_no': 'num', 'product_type': '', 'last_discount_price': 'num', 'seller_name': '', 'large_category_no': '', 'middle_category_no': '', 'small_category_no': '', 'detail_category_no': '', 'catalog_no': '', 'is_now_delivery': '', 'is_adult_product': '', 'is_sale': '', 'options': '', 'add_product_yn': '', 'add_product_no': '', 'main_product_no': '', 'option_quantity': '', 'stock_no': '', 'option_no': '', 'option_name': '', 'oper_dtm': '', 'qrsid': '', 'qrquery': '', 'search_prj': '', 'type_list': '', 'search_gift_event': '', 'search_gift_target': '', 'search_gift_age': '', 'search_gift_word': '', 'search_prd_type': '', 'gift_filter': '', 'ad_yn': '', 'ad_typ_gubn': '', 'ad_area_gubn': '', 'ad_trc_no': '', 'hashed_mbr_id': '', 'body': '', 'order_no': '', 'clk_yn': '', 'imprs_yn': '', 'cvs_yn': '', 'ord_yn': '', 'search_prod_yn': '', 'cm_ad_dv': '', 'reco_req_id': '', 'app_log_build_time': '', 'ad_resp_id': '', 'ad_impr_id': '', 'collection_object': '', 'add_collection_object': '', 'ab_test': '', 'poc_clf': '', 'label_type': '', 'add_label_type': '', 'snippet_object': '', 'add_snippet_object': '', 'search_main_tab': '', 'search_imp_filter': '', 'search_reviewer_rank': '', 'search_review_type': '', 'search_expert_type': '', 'incm_ht_vtc_yn': '', 'add_incm_ht_vtc_yn': '', 'add_fst_incm_cl_cd': '', 'vertical_yn': '', 'search_quickfilter_imprs': '', 'search_catalog_compare': '', 'movie_auto': '', 'ref_keyword': '', 'sch_ab_test': '', 'sch_ab_test_yn': '', 'sch_amz_prd_yn': '', 'current_content_type': '', 'current_content_no': '', 'content_opt_no': '', 'first_view_product_no': '', 'current_opt_product_no': '', 'first_view_opt_product_no': '', 'opt_product_no': '', 'search_collection': '', 'add_search_collection': '' } }
+            'CAMPAIGN': { db: 'ad_platform.dbm_dsp_camp', name: '캠페인', part: 'dt', type: 'dim', cols: { 'dt': 'part_date', 'id': 'PK', 'camp_nm': 'str', 'camp_start_dy': 'str', 'camp_end_dy': 'str', 'dd_allw_bdg_amt': 'bigint', 'dd_allw_bdg_over_dt': 'str', 'actvtn_yn': 'str', 'ad_seller_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint', 'mig': 'str', 'ai_objtv_roas': 'bigint', 'ai_yn': 'str', 'ai_actvtn_yn': 'str', 'ai_excl_prod_yn': 'str', 'ai_excl_keywd_yn': 'str', 'ai_flx_dd_allw_bdg_yn': 'str', 'ai_flx_dd_allw_bdg_amt': 'bigint', 'ai_flx_dd_allw_bdg_yn_update_dt': 'str', 'ai_flx_dd_allw_bdg_amt_update_dt': 'str', 'ai_mng_strtg_type_val': 'str' } },
+            'AD_GROUP': { db: 'ad_platform.dbm_dsp_ad_grp', name: '광고그룹', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'id': 'PK', 'ad_grp_nm': 'str', 'dd_allw_bdg_amt': 'bigint', 'dd_allw_bdg_over_dt': 'str', 'bid_type_val': 'str', 'bid_amt': 'bigint', 'mon_imp_time_val': 'int', 'tue_imp_time_val': 'int', 'wed_imp_time_val': 'int', 'thu_imp_time_val': 'int', 'fri_imp_time_val': 'int', 'sat_imp_time_val': 'int', 'sun_imp_time_val': 'int', 'actvtn_yn': 'str', 'camp_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint', 'ad_imp_mdia_val': 'str', 'p_bid_amt': 'bigint', 'ms_bid_amt': 'bigint', 'ai_yn': 'str' } },
+            'AD_TARGET': { db: 'ad_platform.dbm_dsp_ad_trgt_live', name: '광고타겟', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'id': 'PK', 'prod_no': 'bigint', 'bid_type_val': 'str', 'bid_amt': 'bigint', 'keywd_reg_way_val': 'str', 'actvtn_yn': 'str', 'ad_grp_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint', 'p_bid_amt': 'bigint', 'ms_bid_amt': 'bigint', 'lnkg_impsb_yn': 'str', 'ai_yn': 'str' } },
+            'AD_KEYWORD': { db: 'ad_platform.dbm_dsp_ad_keywd_live', name: '키워드입찰', part: 'part_hour', type: 'dim', cols: { 'part_hour': 'str', 'id': 'PK', 'keywd_nm': 'str', 'bid_type_val': 'str', 'bid_amt': 'bigint', 'actvtn_yn': 'str', 'ad_trgt_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint', 'rnk_auto_bid_actvtn_yn': 'str', 'hope_rnk': 'bigint', 'max_bid_amt': 'bigint', 'adj_amt': 'bigint', 'rnk_auto_bid_dt': 'str', 'expire_dt': 'str' } },
+            'AGENCY': { db: 'ad_platform.dbm_dsp_agn', name: '대행사', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'id': 'PK', 'agn_nm': 'str', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint' } },
+            'MARKETER': { db: 'ad_platform.dbm_dsp_mkr', name: '마케터', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'id': 'PK', 'mkr_login_id': 'str', 'glbl_key_val': 'bigint', 'extr_mkr_no': 'str', 'mkr_stat_val': 'str', 'mkr_auth_type_val': 'str', 'email_alrm_yn': 'str', 'cphn_alrm_yn': 'str', 'etiq_alrm_yn': 'str', 'email_alrm_agree_dt': 'str', 'cphn_alrm_agree_dt': 'str', 'etiq_alrm_agree_dt': 'str', 'agn_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint' } },
+            'SELLER': { db: 'ad_platform.dbm_dsp_ad_seller', name: '셀러', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'id': 'PK', 'seller_no': 'bigint', 'biz_no': 'str', 'seller_id': 'str', 'rep_seller_yn': 'str', 'seller_blce_exstn_yn': 'str', 'mapp_mkr_ent_yn': 'str', 'adver_mapp_dt': 'str', 'adver_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint', 'ptnr_yn': 'str' } },
+            'SELLER_MARKETER_MAP': { db: 'ad_platform.dbm_dsp_ad_seller_mkr_mapp_newest', name: '셀러-마케터매핑', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'id': 'PK', 'ad_seller_mkr_mapp_chg_dy': 'str', 'ad_seller_id': 'bigint', 'mkr_id': 'bigint', 'create_dt': 'str', 'update_dt': 'str', 'del_dt': 'str', 'ver_no': 'bigint', 'gdwl_type': 'str' } },
+            'PRODUCT': { db: '11st.tb_evs_ods_m_dp_live_prd', name: '전시상품', part: 'part_date', type: 'dim', cols: { 'part_date': 'str', 'prd_no': 'PK', 'mstr_prd_no': 'bigint', 'sel_mnbd_no': 'bigint', 'prd_nm': 'str', 'wirelss_prd_nm': 'str', 'advrt_stmt': 'str', 'sel_bgn_dy': 'str', 'sel_end_dy': 'str', 'sel_mthd_cd': 'str', 'sel_stat_cd': 'str', 'dlv_cst_pay_typ_cd': 'str', 'dlv_cst_inst_basi_cd': 'str', 'snd_pln_trm': 'bigint', 'prd_stat_cd': 'str', 'seller_prd_cd': 'str', 'minor_sel_cn_yn': 'str', 'abrd_brand_yn': 'str', 'lctgr_no': 'bigint', 'mctgr_no': 'bigint', 'sctgr_no': 'bigint', 'dctgr_no': 'bigint', 'std_ctgr_no': 'bigint', 'mstr_prd_kd_cd': 'str', 'sel_prc': 'bigint', 'final_dsc_prc': 'bigint', 'mall_pnt_rt': 'bigint', 'mall_pnt': 'bigint', 'dbl_pnt_sppl_yn': 'str', 'sppl_chp_qty': 'bigint', 'intfree_mon': 'bigint', 'chp_kd_cd': 'str', 'frgft_yn': 'str', 'seller_hmpg_nm': 'str', 'sellershp_img_url': 'str', 'opt_yn': 'str', 'sell_crdt_grd': 'str', 'mng_crdt_grd': 'str', 'prd_evl_tot_qty': 'bigint', 'prd_tot_evl_scor': 'bigint', 'buy_satisfy': 'bigint', 'exprt_review_cnt': 'bigint', 'nck_nm': 'str', 'mem_id': 'str', 's_dsc_amt': 'bigint', 's_dsc_rt': 'bigint', 'm_dsc_amt': 'bigint', 'm_dsc_rt': 'bigint', 'w_dsc_amt': 'bigint', 'w_dsc_rt': 'bigint', 'brand_cd': 'str', 'brand_nm': 'str', 'best_score': 'bigint', 'mvp_score': 'bigint', 'pop_score': 'bigint', 'is_mvp_yn': 'str', 'is_premium_item': 'str', 'premium_item_bgn_dy': 'str', 'premium_item_end_dy': 'str', 'is_bg_color_item': 'str', 'bg_color_item_bgn_dy': 'str', 'bg_color_item_end_dy': 'str', 'is_focus_item': 'str', 'focus_item_bgn_dy': 'str', 'focus_item_end_dy': 'str', 'img_url_01': 'str', 'img_url_typ_01': 'str', 'img_url_02': 'str', 'img_url_typ_02': 'str', 'img_url_03': 'str', 'img_url_typ_03': 'str', 'is_srch_yn': 'str', 'is_disp_yn': 'str', 'prd_create_dt': 'str', 'prd_update_dt': 'str', 'create_dt': 'str', 'update_dt': 'str', 'dlv_cupn_cd': 'str', 'ocb_prd_rt': 'bigint', 'prd_pnt_rt': 'bigint', 'prd_pnt_add_rt': 'bigint', 'ocb_zone_rt': 'bigint', 'low_prc_yn': 'str', 'prd_pnt_pre_yn': 'str', 'prd_pnt_pre_rt': 'bigint', 'cupn_ex_cd': 'str', 'prd_intfree_yn': 'str', 'skt_add_pre_yn': 'str', 'event_save_rt': 'bigint', 'f_dsc_amt': 'bigint', 'f_dsc_rt': 'bigint', 'seller_ocb': 'bigint', 'seller_mileage': 'bigint', 'multi_qty_dsc_amt': 'bigint', 'multi_qty_dsc_rt': 'bigint', 'om_prd_yn': 'str', 'retail_price': 'bigint', 'makt_prc': 'bigint', 'gbl_dlv_yn': 'str', 'price_nm': 'str', 'ad_movie_yn': 'str', 's_dsc_rt_org': 'bigint', 'm_dsc_rt_org': 'bigint', 'w_dsc_rt_org': 'bigint', 'hope_shp_pnt': 'bigint', 'itm_cupn_iss_cn_yn': 'str', 'partner_cupn_ex_yn': 'str', 'lp_cupn_ex_yn': 'str', 'dlv_prc': 'bigint', 'rntl_info_list': 'str', 'std_prd_nm': 'str', 'dlv_typ_cd': 'str', 'seller_typ_cd': 'str' } },
+            'BID_STATUS': { db: 'share_ad.focus_bid_trgt_total', name: '입찰상태', part: 'dt', type: 'fact', cols: { 'dt': 'PK', 'ai_yn': 'str', 'seller_no': 'str', 'ptnr_yn': 'str', 'adver_id': 'str', 'ad_seller_id': 'str', 'ad_camp_id': 'str', 'ad_grp_id': 'str', 'ad_trgt_id': 'str', 'prd_no': 'str', 'keywd_reg_way_val': 'str', 'camp_start_dy': 'str', 'camp_end_dy': 'str', 'camp_budget': 'str', 'grp_budget': 'str', 'imp_mdia_val': 'str', 'mkr_id': 'str', 'agn_id': 'str', 'ms_ba': 'str', 'p_ba': 'str', 'grp_ms_ba': 'str', 'grp_p_ba': 'str', 'trgt_ms_ba': 'str', 'trgt_p_ba': 'str', 'adver_lnkg_yn': 'str', 'lnkg_impsb_yn': 'str', 'camp_period_yn': 'str', 'del_yn': 'str', 'actvtn_yn': 'str', 'del_str': 'str', 'actvtn_str': 'str', 'live_prd_yn': 'str', 'balance_yn': 'str', 'ai_objtv_roas': 'str', 'ai_excl_prod_yn': 'str', 'ai_excl_keywd_yn': 'str' } },
+            'AD_IMPRESSION': { db: 'ad_platform.vine_app_new_ad_logserver_live_parse_v5', name: '노출/클릭', part: 'part_hour', type: 'fact', cols: { 'part_hour': 'str', 'log_date': 'str', 'action_date': 'str', 'transaction_type': 'str', 'impression': 'int', 'click': 'int', 'id': 'int', 'act_id': 'str', 'valid_code': 'int', 'invalid_code': 'int', 'response_id': 'str', 'impression_id': 'PK', 'impression_rank': 'int', 'impression_date': 'str', 'click_date': 'str', 'search_keyword': 'str', 'match_keyword': 'str', 'keyword_mapping_type': 'str', 'bid_type': 'str', 'bid_amount': 'int', 'ppc': 'int', 'auid': 'str', 'idfa': 'str', 'aaid': 'str', 'advertising_id_type': 'str', 'dnt': 'str', 'dnt_reason': 'str', 'ad_unit_id': 'str', 'device_os_name': 'str', 'device_os_version': 'str', 'browser_name': 'str', 'browser_version': 'str', 'request_ip': 'str', 'dsp_id': 'str', 'agency_id': 'int', 'marketer_id': 'int', 'advertiser_id': 'int', 'seller_id': 'int', 'campaign_id': 'int', 'ad_group_id': 'int', 'ad_group_type': 'str', 'ad_target_id': 'int', 'keyword_id': 'int', 'placement_id': 'str', 'quality_score': 'double', 'qs_bucket': 'str', 'rank_score': 'double', 'ad_selection_type': 'str', 'affiliation_seller_key': 'str', 'affiliation_product_key': 'str', 'display_category_1_no': 'str', 'display_category_2_no': 'str', 'display_category_3_no': 'str', 'opt_out': 'str', 'ad_unit_name': 'str', 'transaction_id': 'str', 'partner_id': 'str', 'partner_type': 'str', 'publisher_id': 'str', 'channel_id': 'str', 'banner_size': 'str', 'targeting_type': 'str', 'ext_ad_partner_id': 'str', 'ext_ad_web_ad_unit_id': 'str', 'ext_ad_app_ad_unit_id': 'str', 'ext_ad_search_keyword_id': 'str', 'has_snippet': 'str', 'search_collection_type': 'str', 'domain': 'str', 'app_bundle': 'str', 'display_rank': 'int', 'partner_seller': 'str', 'affiliation_product_master_key': 'str', 'affiliation_product_option_key': 'str', 'fee_type': 'str', 'is_ai': 'str', 'is_bot': 'str', 'prd_grp_no': 'str', 'prd_grp_type': 'str', 'bf_cmp': 'double', 'search_hybrid_view_type': 'str', 'inflow_type': 'str', 'bucket_type': 'str' } },
+            'AD_FEE': { db: 'ad_platform.dsp_ad_fee_log_live_parse_v5', name: '과금', part: 'part_hour', type: 'fact', cols: { 'qs_bucket': 'str', 'part_hour': 'str', 'action_date': 'str', 'transaction_type': 'str', 'valid_cnt': 'int', 'id': 'int', 'act_id': 'FK', 'valid_code': 'int', 'invalid_code': 'int', 'response_id': 'str', 'impression_id': 'str', 'impression_rank': 'int', 'impression_date': 'str', 'click_date': 'str', 'search_keyword': 'str', 'match_keyword': 'str', 'keyword_mapping_type': 'str', 'bid_type': 'str', 'auid': 'str', 'idfa': 'str', 'aaid': 'str', 'advertising_id_type': 'str', 'dnt': 'str', 'ad_unit_id': 'str', 'device_os_name': 'str', 'device_os_version': 'str', 'browser_name': 'str', 'browser_version': 'str', 'request_ip': 'str', 'dsp_id': 'str', 'agency_id': 'int', 'marketer_id': 'int', 'advertiser_id': 'int', 'seller_id': 'int', 'campaign_id': 'int', 'ad_group_id': 'int', 'ad_target_id': 'int', 'keyword_id': 'int', 'placement_id': 'str', 'affiliation_seller_key': 'str', 'affiliation_product_key': 'str', 'free_point_amount': 'int', 'free_point_tax_amount': 'int', 'non_free_point_amount': 'int', 'non_free_point_tax_amount': 'int', 'cash_amount': 'int', 'cash_tax_amount': 'int', 'pay_result': 'str', 'paid_date': 'str', 'display_category_1_no': 'str', 'display_category_2_no': 'str', 'display_category_3_no': 'str', 'opt_out': 'str', 'ad_unit_name': 'str', 'banner_size': 'str', 'transaction_id': 'str', 'partner_id': 'str', 'partner_type': 'str', 'publisher_id': 'str', 'channel_id': 'str', 'reserve_amount': 'double', 'targeting_type': 'str', 'has_snippet': 'str', 'search_collection_type': 'str', 'domain': 'str', 'app_bundle': 'str', 'dnt_reason': 'str', 'ext_ad_partner_id': 'str', 'ext_ad_web_ad_unit_id': 'str', 'ext_ad_app_ad_unit_id': 'str', 'ext_ad_search_keyword_id': 'str', 'display_rank': 'int', 'partner_seller': 'str', 'limit_over_amount': 'bigint', 'limit_over_tax_amount': 'bigint', 'affiliation_product_master_key': 'str', 'affiliation_product_option_key': 'str', 'fee_type': 'str', 'pay_type': 'str', 'prd_mgrp_no': 'bigint', 'is_ai': 'str', 'is_bot': 'str', 'prd_grp_no': 'str', 'prd_grp_type': 'str', 'bf_cmp': 'double', 'search_hybrid_view_type': 'str', 'inflow_type': 'str', 'bucket_type': 'str' } },
+            'AD_CONVERSION': { db: 'ad_platform.vine_new_ad_log_cvr_live_v5', name: '전환', part: 'part_hour', type: 'fact', cols: { 'qs_bucket': 'str', 'part_hour': 'str', 'log_date': 'str', 'action_date': 'str', 'transaction_type': 'str', 'conversion': 'bigint', 'id': 'int', 'act_id': 'str', 'valid_code': 'int', 'invalid_code': 'int', 'response_id': 'str', 'impression_id': 'str', 'impression_rank': 'int', 'impression_date': 'str', 'click_date': 'str', 'search_keyword': 'str', 'match_keyword': 'str', 'keyword_mapping_type': 'str', 'bid_type': 'str', 'auid': 'str', 'idfa': 'str', 'aaid': 'str', 'dnt': 'str', 'ad_unit_id': 'str', 'device_os_name': 'str', 'device_os_version': 'str', 'browser_name': 'str', 'browser_version': 'str', 'request_ip': 'str', 'dsp_id': 'str', 'agency_id': 'int', 'marketer_id': 'int', 'advertiser_id': 'int', 'seller_id': 'int', 'campaign_id': 'int', 'ad_group_id': 'int', 'ad_target_id': 'int', 'keyword_id': 'int', 'affiliation_seller_key': 'str', 'affiliation_product_key': 'str', 'placement_id': 'str', 'pay_result': 'str', 'conversion_price': 'bigint', 'display_category_1_no': 'str', 'display_category_2_no': 'str', 'display_category_3_no': 'str', 'opt_out': 'str', 'ad_unit_name': 'str', 'banner_size': 'str', 'transaction_id': 'str', 'partner_id': 'str', 'partner_type': 'str', 'publisher_id': 'str', 'channel_id': 'str', 'reserve_amount': 'double', 'targeting_type': 'str', 'has_snippet': 'str', 'search_collection_type': 'str', 'domain': 'str', 'app_bundle': 'str', 'advertising_id_type': 'str', 'ext_ad_partner_id': 'str', 'ext_ad_web_ad_unit_id': 'str', 'ext_ad_app_ad_unit_id': 'str', 'ext_ad_search_keyword_id': 'str', 'display_rank': 'int', 'partner_seller': 'str', 'prd_mgrp_no': 'str', 'prd_grp_no': 'str', 'order_product_id': 'str', 'cvr_type': 'str', 'affiliation_product_master_key': 'str', 'affiliation_product_option_key': 'str', 'fee_type': 'str', 'pay_type': 'str', 'is_ai': 'str', 'contribution_conversion': 'bigint', 'contribution_conversion_price': 'bigint', 'virtual_order_no': 'str', 'is_bot': 'str', 'prd_grp_type': 'str', 'bf_cmp': 'double', 'search_hybrid_view_type': 'str', 'inflow_type': 'str', 'bucket_type': 'str' } },
+            'PAYMENT': { db: 'share_ad.trans_ad_rel_base', name: '결제', part: 'dt', type: 'fact', cols: { 'dt': 'str', 'seller_no': 'str', 'prd_no': 'str', 'trns_type_cd': 'str', 'ptnr_cd': 'str', 'pay_trns_amt': 'bigint', 'pay_seller_basic_dscnt_amt_drct': 'bigint', 'pay_seller_dscnt_amt_basic': 'bigint', 'pay_svc_use_amt': 'bigint', 'pay_11st_dscnt_amt': 'bigint', 'pay_net_sale_amt': 'double', 'cnfrm_trns_amt': 'bigint', 'cnfrm_seller_basic_dscnt_amt_drct': 'bigint', 'cnfrm_seller_dscnt_amt_basic': 'bigint', 'cnfrm_svc_use_amt': 'bigint', 'cnfrm_11st_dscnt_amt': 'bigint', 'cnfrm_net_sale_amt': 'double', 'pay_cnt': 'bigint', 'pay_qty': 'bigint' } },
+            'SEARCH_LOG': { db: 'search.sch_11st_log_client_base', name: '검색로그', part: 'dt', type: 'fact', cols: { 'dt': 'str', 'base_time': 'str', 'poc_cl_cd': 'str', 'incm_grp': 'str', 'incm_grp_rank': 'bigint', 'incm_cl_cd': 'str', 'incm_cl_cd_grp': 'str', 'page_type': 'str', 'keyword': 'str', 'page_id': 'str', 'action_id': 'str', 'prev_keyword': 'str', 'prev_clk_cnt': 'bigint', 'keyword_grp_id': 'str', 'buy_grp_id': 'str', 'sex_cl_cd': 'str', 'age_cd': 'str', 'age_5_grp_cd': 'str', 'age_10_grp_cd': 'str', 'fix_yn': 'str', 'fix_keyword': 'str', 'local_time': 'str', 'recv_time': 'str', 'os_name': 'str', 'os_version': 'str', 'resolution': 'str', 'screen_width': 'str', 'screen_height': 'str', 'language_code': 'str', 'rake_lib': 'str', 'rake_lib_version': 'str', 'ip': 'str', 'token': 'str', 'log_version': 'str', 'device_id': 'str', 'device_model': 'str', 'manufacturer': 'str', 'carrier_name': 'str', 'network_type': 'str', 'app_release': 'str', 'app_build_number': 'str', 'browser_name': 'str', 'browser_version': 'str', 'referrer': 'str', 'url': 'str', 'document_title': 'str', 'pcid': 'str', 'page_version': 'str', 'service_country_code': 'str', 'service_language_code': 'str', 'service_currency_code': 'str', 'member_no': 'str', 'unique_key': 'str', 'tr_cd': 'str', 'ctgr_no': 'str', 'birthyear': 'str', 'pf_clf': 'str', 'bm_clf': 'str', 'partner_cd': 'str', 'advrt_no': 'str', 'advrt_detail': 'str', 'ad_nm': 'str', 'ad_tp_cd': 'str', 'ad_tp_nm': 'str', 'alcmpn_cd': 'str', 'alcmpn_nm': 'str', 'alcmpn_drct_vst_fg_cd': 'str', 'alcmpn_drct_vst_fg_nm': 'str', 'alcmpn_tp_cd': 'str', 'alcmpn_tp_nm': 'str', 'alcmpn_fg_cd': 'str', 'alcmpn_fg_nm': 'str', 'atrb_code': 'str', 'session_id': 'PK', 'xsite_session_id': 'str', 'xsite_session_sch_seq': 'str', 'eleven_device_id': 'str', 'auid': 'str', 'app_page_type': 'str', 'web_log_version': 'str', 'reco_side_info': 'str', 'partner_referrer': 'str', 'ab_tcs': 'str', 'search_call_id': 'str', 'search_result_cnt': 'str', 'search_view_type': 'str', 'search_sort_type': 'str', 'page_no': 'str', 'search_include_keyword': 'str', 'search_except_keyword': 'str', 'search_category_no': 'str', 'search_brand_code': 'str', 'search_seller_nos': 'str', 'search_max_price': 'bigint', 'search_min_price': 'bigint', 'search_benefit': 'str', 'search_attribute': 'str', 'search_prdtype': 'str', 'search_shipping': 'str', 'search_filter_yn': 'str', 'search_ad_show': 'str', 'search_no_result_yn': 'str', 'user_input_keyword': 'str', 'btn_name': 'str', 'content_no': 'str', 'content_name': 'str', 'link_url': 'str', 'display_order': 'bigint', 'position_l1': 'str', 'position_l2': 'bigint', 'position_l3': 'str', 'parent_type': 'str', 'parent_no': 'str', 'parent_name': 'str', 'research_include_keyword': 'str', 'research_except_keyword': 'str', 'content_code': 'str', 'seller_no': 'str', 'search_custom_yn': 'str', 'search_custom_key': 'str', 'current_product_no': 'str', 'trace_meta_category_no': 'str', 'content_type': 'str', 'product_no': 'str', 'display_category_no': 'str', 'group_product_no': 'bigint', 'product_type': 'str', 'last_discount_price': 'bigint', 'seller_name': 'str', 'large_category_no': 'str', 'middle_category_no': 'str', 'small_category_no': 'str', 'detail_category_no': 'str', 'catalog_no': 'str', 'is_now_delivery': 'str', 'is_adult_product': 'str', 'is_sale': 'str', 'options': 'str', 'add_product_yn': 'str', 'add_product_no': 'str', 'main_product_no': 'str', 'option_quantity': 'str', 'stock_no': 'str', 'option_no': 'str', 'option_name': 'str', 'oper_dtm': 'str', 'qrsid': 'str', 'qrquery': 'str', 'search_prj': 'str', 'type_list': 'str', 'search_gift_event': 'str', 'search_gift_target': 'str', 'search_gift_age': 'str', 'search_gift_word': 'str', 'search_prd_type': 'str', 'gift_filter': 'str', 'ad_yn': 'str', 'ad_typ_gubn': 'str', 'ad_area_gubn': 'str', 'ad_trc_no': 'str', 'hashed_mbr_id': 'str', 'body': 'str', 'order_no': 'str', 'clk_yn': 'str', 'imprs_yn': 'str', 'cvs_yn': 'str', 'ord_yn': 'str', 'search_prod_yn': 'str', 'cm_ad_dv': 'str', 'reco_req_id': 'str', 'app_log_build_time': 'str', 'ad_resp_id': 'str', 'ad_impr_id': 'str', 'collection_object': 'str', 'add_collection_object': 'str', 'ab_test': 'str', 'poc_clf': 'str', 'label_type': 'str', 'add_label_type': 'str', 'snippet_object': 'str', 'add_snippet_object': 'str', 'search_main_tab': 'str', 'search_imp_filter': 'str', 'search_reviewer_rank': 'str', 'search_review_type': 'str', 'search_expert_type': 'str', 'incm_ht_vtc_yn': 'str', 'add_incm_ht_vtc_yn': 'str', 'add_fst_incm_cl_cd': 'str', 'vertical_yn': 'str', 'search_quickfilter_imprs': 'str', 'search_catalog_compare': 'str', 'movie_auto': 'str', 'ref_keyword': 'str', 'sch_ab_test': 'str', 'sch_ab_test_yn': 'str', 'sch_amz_prd_yn': 'str', 'current_content_type': 'str', 'current_content_no': 'str', 'content_opt_no': 'str', 'first_view_product_no': 'str', 'current_opt_product_no': 'str', 'first_view_opt_product_no': 'str', 'opt_product_no': 'str', 'search_collection': 'str', 'add_search_collection': 'str' } }
         };
 
         const ERD_GRAPH = {
@@ -319,7 +353,7 @@ GROUP BY
    SUBSTR(base_time,9,2),
   POC_CL_CD;
 [질문 예시 3]
-아래 기간에 발생한 통합검색 영역의 QC랑 키워드수를 일자, 디바이스별로 구분해서 알려줘.
+아래 기간에 발생한 포커스클릭 
 그리고 포커스 응답QC랑 키워드수도 같이 알려줘.
 - 기간: 2023.07.03~2023.07.09 
 [답변 Hive SQL]
@@ -607,12 +641,13 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
         window.app = {
             tabs: ['main'],
             activeTab: 'main',
+            rightTab: 'sql', // 'sql' or 'mock'
             queries: {
                 'main': { id: 'main', name: '메인 쿼리', baseTable: '', dimensions: [], metrics: [], filters: [], joins: [], dateRange: { start: '', end: '' } }
             },
             cteSchemas: {},
-            expandedTables: [], // 추가: 열린 테이블 상태 유지
-            saveTimeout: null, // 추가: 저장 디바운싱
+            expandedTables: [], 
+            saveTimeout: null, 
 
             q: function() { return this.queries[this.activeTab]; },
 
@@ -622,7 +657,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 this.parseAndRenderSqlGuide();
             },
 
-            // --- Common Utilities ---
             showToast: function(msg, isError = false) {
                 const toast = document.getElementById('toast');
                 const icon = document.getElementById('toastIcon');
@@ -751,12 +785,76 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 this.renderFilters();
                 this.generateSQL();
                 
-                this.saveWorkspace(); // UI가 업데이트될 때마다 백그라운드 자동 저장
+                this.saveWorkspace(); 
             },
 
             reset: function() {
                 this.queries[this.activeTab] = { id: this.activeTab, name: this.activeTab, baseTable: '', dimensions: [], metrics: [], filters: [], joins: [], dateRange: { start: '', end: '' } };
                 this.updateAllUI();
+            },
+
+            // 퀵 파티션 버튼 함수 (어제, 최근7일 등)
+            setQuickDate: function(type) {
+                const now = new Date(); // 오늘 날짜 
+                let start = new Date(now);
+                let end = new Date(now);
+
+                if (type === 'yesterday') {
+                    start.setDate(now.getDate() - 1);
+                    end.setDate(now.getDate() - 1);
+                } else if (type === 'last7') {
+                    start.setDate(now.getDate() - 7);
+                    end.setDate(now.getDate() - 1);
+                } else if (type === 'last30') {
+                    start.setDate(now.getDate() - 30);
+                    end.setDate(now.getDate() - 1);
+                } else if (type === 'thisMonth') {
+                    start.setDate(1); 
+                    end = new Date(now); 
+                }
+
+                const formatDate = (d) => {
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+
+                document.getElementById('dateStart').value = formatDate(start);
+                document.getElementById('dateEnd').value = formatDate(end);
+                this.updateDate();
+            },
+
+            // 오른쪽 탭 스위칭 (SQL vs 데이터 미리보기)
+            switchRightTab: function(tab) {
+                this.rightTab = tab;
+                if(tab === 'sql') {
+                    document.getElementById('view-sql').classList.remove('hidden');
+                    document.getElementById('view-sql').classList.add('flex');
+                    document.getElementById('view-mock').classList.replace('flex', 'hidden');
+                    
+                    document.getElementById('tabBtn-sql').classList.replace('border-transparent', 'border-blue-500');
+                    document.getElementById('tabBtn-sql').classList.replace('text-gray-400', 'text-blue-400');
+                    document.getElementById('tabBtn-sql').classList.add('bg-[#1e1e1e]');
+                    
+                    document.getElementById('tabBtn-mock').classList.replace('border-blue-500', 'border-transparent');
+                    document.getElementById('tabBtn-mock').classList.replace('text-blue-400', 'text-gray-400');
+                    document.getElementById('tabBtn-mock').classList.remove('bg-[#1e1e1e]');
+                } else {
+                    document.getElementById('view-mock').classList.remove('hidden');
+                    document.getElementById('view-mock').classList.add('flex');
+                    document.getElementById('view-sql').classList.replace('flex', 'hidden');
+                    
+                    document.getElementById('tabBtn-mock').classList.replace('border-transparent', 'border-blue-500');
+                    document.getElementById('tabBtn-mock').classList.replace('text-gray-400', 'text-blue-400');
+                    document.getElementById('tabBtn-mock').classList.add('bg-[#1e1e1e]');
+                    
+                    document.getElementById('tabBtn-sql').classList.replace('border-blue-500', 'border-transparent');
+                    document.getElementById('tabBtn-sql').classList.replace('text-blue-400', 'text-gray-400');
+                    document.getElementById('tabBtn-sql').classList.remove('bg-[#1e1e1e]');
+                    
+                    this.renderMockData();
+                }
             },
 
             renderBaseTableOptions: function() {
@@ -765,7 +863,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 const allSchemas = this.getAllSchemas();
                 
                 Object.keys(allSchemas).forEach(key => {
-                    if (key === this.activeTab) return; // Cannot select self
+                    if (key === this.activeTab) return; 
                     const isCte = allSchemas[key].type === 'cte';
                     select.innerHTML += `<option value="${key}">${key} ${isCte ? '(서브쿼리)' : `(${allSchemas[key].name})`}</option>`;
                 });
@@ -777,7 +875,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 const allSchemas = this.getAllSchemas();
                 
                 Object.keys(allSchemas).forEach(tableName => {
-                    if (tableName === this.activeTab) return; // Hide current CTE from itself
+                    if (tableName === this.activeTab) return; 
 
                     const table = allSchemas[tableName];
                     const isFact = table.type === 'fact';
@@ -786,7 +884,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     let iconColor = isFact ? 'text-yellow-500 fa-bolt' : (isCte ? 'text-purple-500 fa-code-branch' : 'text-blue-500 fa-cube');
                     let bgClass = isCte ? 'bg-purple-50' : 'bg-gray-50';
                     
-                    // 펼침 상태 유지 확인
                     const isExpanded = this.expandedTables.includes(tableName);
                     const listDisplay = isExpanded ? 'flex' : 'hidden';
                     const iconRotate = isExpanded ? '' : '-rotate-90';
@@ -833,7 +930,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     container.innerHTML += html;
                 });
                 
-                // 렌더링 후 검색어가 남아있다면 필터 재적용
                 const term = document.getElementById('searchInput').value;
                 if (term) setTimeout(() => this.filterSchema(), 0);
             },
@@ -876,14 +972,38 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 if (icon) {
                     icon.classList.toggle('-rotate-90');
                 }
-                this.saveWorkspace(); // 펼침 상태 변경 시 백업
+                this.saveWorkspace(); 
             },
 
             handleDragStart: function(e, table, col, type) {
                 const data = { table, col, type };
                 e.dataTransfer.setData('application/json', JSON.stringify(data));
                 e.dataTransfer.effectAllowed = 'copy';
-                window.dragItemFallback = data; 
+            },
+
+            handleReorderStart: function(e, index, type) {
+                e.dataTransfer.setData('text/plain', JSON.stringify({ action: 'reorder', index, type }));
+                e.dataTransfer.effectAllowed = 'move';
+            },
+
+            handleReorderDrop: function(e, targetIndex, type) {
+                e.preventDefault();
+                e.stopPropagation(); // 부모(dimensionsList) 드롭 무시
+                const dataStr = e.dataTransfer.getData('text/plain');
+                if (dataStr) {
+                    try {
+                        const parsed = JSON.parse(dataStr);
+                        if (parsed.action === 'reorder' && parsed.type === type && parsed.index !== targetIndex) {
+                            const list = this.q()[type];
+                            const [movedItem] = list.splice(parsed.index, 1);
+                            list.splice(targetIndex, 0, movedItem);
+                            
+                            if (type === 'dimensions') this.renderDimensions();
+                            if (type === 'metrics') this.renderMetrics();
+                            this.generateSQL();
+                        }
+                    } catch(err) {}
+                }
             },
 
             setupDragAndDrop: function() {
@@ -895,16 +1015,20 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     zone.addEventListener('drop', (e) => {
                         e.preventDefault();
                         zone.classList.remove('drag-over');
+                        
+                        // Reorder 이벤트인 경우 외부 스키마 추가 로직 차단
+                        const textData = e.dataTransfer.getData('text/plain');
+                        if (textData && textData.includes('"action":"reorder"')) return;
+
                         if (!app.q().baseTable) { app.showToast('먼저 STEP 1의 기준 테이블(Base Table)을 선택해 주세요.', true); return; }
                         try {
                             const jsonData = e.dataTransfer.getData('application/json');
-                            const data = jsonData ? JSON.parse(jsonData) : window.dragItemFallback;
-                            if (data) {
+                            if (jsonData) {
+                                const data = JSON.parse(jsonData);
                                 acceptCallback(data);
                                 app.autoAddJoinPath(data.table);
-                                window.dragItemFallback = null;
                             }
-                        } catch(err) { console.error('Drag & Drop Parsing Error:', err); }
+                        } catch(err) { console.error('Drag & Drop Error:', err); }
                     });
                 };
 
@@ -981,22 +1105,26 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 const q = this.q();
                 const container = document.getElementById('dimensionsList');
                 if (q.dimensions.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">Drag & Drop</p></div>`;
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">이곳으로 드래그 & 드롭</p></div>`;
                     return;
                 }
-                container.innerHTML = q.dimensions.map(d => `
-                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                container.innerHTML = q.dimensions.map((d, i) => `
+                    <div class="bg-white border border-blue-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2 cursor-grab"
+                         draggable="true" 
+                         ondragstart="app.handleReorderStart(event, ${i}, 'dimensions')" 
+                         ondragover="event.preventDefault(); event.stopPropagation();" 
+                         ondrop="app.handleReorderDrop(event, ${i}, 'dimensions')">
                         <div class="flex justify-between items-center text-xs">
-                            <div class="flex items-center gap-2 truncate">
-                                <i class="fas fa-grip-vertical text-gray-300"></i>
+                            <div class="flex items-center gap-2 truncate pointer-events-none">
+                                <i class="fas fa-grip-vertical text-gray-400"></i>
                                 <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${d.table}</span>
                                 <span class="font-bold text-gray-800">${d.col}</span>
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
-                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition" title="CASE WHEN 조건 설정">
+                                <button onclick="app.toggleBucket(${d.id})" class="text-[10px] ${d.showBucket ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} px-2 py-1 rounded border ${d.showBucket ? 'border-blue-600' : 'border-blue-100 hover:bg-blue-100'} transition font-bold" title="CASE WHEN 조건 설정">
                                     <i class="fas fa-layer-group"></i> 구간화
                                 </button>
-                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeDim(${d.id})"></i>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1 p-1" onclick="app.removeDim(${d.id})"></i>
                             </div>
                         </div>
                         ${d.showBucket ? `
@@ -1014,10 +1142,10 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                     <button onclick="app.addBucketRule(${d.id})" class="text-blue-500 hover:text-blue-700 bg-white px-1.5 py-0.5 border border-gray-200 rounded shadow-sm"><i class="fas fa-plus"></i> 추가</button>
                                 </div>
                                 <div class="space-y-1.5 mt-2">
-                                    ${d.buckets.map((b, i) => `
+                                    ${d.buckets.map((b, idx) => `
                                         <div class="flex items-center gap-1 text-[10px]">
                                             <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">WHEN</span>
-                                            <select onchange="app.updateBucketRule(${d.id}, ${i}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
+                                            <select onchange="app.updateBucketRule(${d.id}, ${idx}, 'op', this.value)" class="border border-gray-300 rounded outline-none p-1 bg-white text-gray-700 font-bold">
                                                 <option value=">=" ${b.op==='>='?'selected':''}>&gt;=</option>
                                                 <option value=">" ${b.op==='>'?'selected':''}>&gt;</option>
                                                 <option value="<=" ${b.op==='<='?'selected':''}>&lt;=</option>
@@ -1025,10 +1153,10 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                                 <option value="=" ${b.op==='='?'selected':''}>=</option>
                                                 <option value="!=" ${b.op==='!='?'selected':''}>!=</option>
                                             </select>
-                                            <input type="text" value="${b.val.replace(/"/g, '&quot;')}" onchange="app.updateBucketRule(${d.id}, ${i}, 'val', this.value)" placeholder="기준" class="border border-gray-300 rounded outline-none p-1 w-12 font-mono focus:border-blue-500">
+                                            <input type="text" value="${b.val.replace(/"/g, '&quot;')}" onchange="app.updateBucketRule(${d.id}, ${idx}, 'val', this.value)" placeholder="기준" class="border border-gray-300 rounded outline-none p-1 w-12 font-mono focus:border-blue-500">
                                             <span class="font-bold text-blue-600 bg-blue-100 px-1 rounded">THEN</span>
-                                            <input type="text" value="${b.label.replace(/"/g, '&quot;')}" onchange="app.updateBucketRule(${d.id}, ${i}, 'label', this.value)" placeholder="라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
-                                            <button onclick="app.removeBucketRule(${d.id}, ${i})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
+                                            <input type="text" value="${b.label.replace(/"/g, '&quot;')}" onchange="app.updateBucketRule(${d.id}, ${idx}, 'label', this.value)" placeholder="라벨명" class="border border-gray-300 rounded outline-none p-1 flex-1 focus:border-blue-500">
+                                            <button onclick="app.removeBucketRule(${d.id}, ${idx})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-times"></i></button>
                                         </div>
                                     `).join('')}
                                     <div class="flex items-center gap-1 text-[10px] mt-2 pt-2 border-t border-gray-200">
@@ -1053,16 +1181,20 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 const q = this.q();
                 const container = document.getElementById('metricsList');
                 if (q.metrics.length === 0) {
-                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">Drag & Drop</p></div>`;
+                    container.innerHTML = `<div class="empty-state m-auto text-center text-gray-400 pointer-events-none"><i class="fas fa-hand-rock mb-2 text-lg"></i><p class="text-xs">이곳으로 드래그 & 드롭</p></div>`;
                     return;
                 }
-                container.innerHTML = q.metrics.map(m => {
+                container.innerHTML = q.metrics.map((m, i) => {
                     if (m.isCalc) {
                         return `
-                        <div class="bg-green-50 border border-green-300 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                        <div class="bg-green-50 border border-green-300 rounded p-2 shadow-sm fade-in flex flex-col gap-2 cursor-grab"
+                             draggable="true" 
+                             ondragstart="app.handleReorderStart(event, ${i}, 'metrics')" 
+                             ondragover="event.preventDefault(); event.stopPropagation();" 
+                             ondrop="app.handleReorderDrop(event, ${i}, 'metrics')">
                             <div class="flex justify-between items-center text-xs mb-1">
-                                <span class="font-bold text-green-800"><i class="fas fa-square-root-alt mr-1"></i> 수식 연산 (Calc)</span>
-                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                                <span class="font-bold text-green-800 pointer-events-none"><i class="fas fa-grip-vertical text-green-300 mr-2"></i><i class="fas fa-square-root-alt mr-1"></i> 수식 연산 (Calc)</span>
+                                <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer p-1" onclick="app.removeMetric(${m.id})"></i>
                             </div>
                             <div class="flex flex-col gap-1.5 text-xs">
                                 <input type="text" value="${m.formula.replace(/"/g, '&quot;')}" onchange="app.updateCalcMetric(${m.id}, 'formula', this.value)" placeholder="예: SUM(AD_FEE.cash_amount) / SUM(AD_IMPRESSION.click)" class="border border-green-300 rounded p-1.5 w-full outline-none font-mono text-[10px] focus:ring-1 focus:ring-green-400">
@@ -1074,10 +1206,14 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                         </div>`;
                     } else {
                         return `
-                        <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2">
+                        <div class="bg-white border border-green-200 rounded p-2 shadow-sm fade-in flex flex-col gap-2 cursor-grab"
+                             draggable="true" 
+                             ondragstart="app.handleReorderStart(event, ${i}, 'metrics')" 
+                             ondragover="event.preventDefault(); event.stopPropagation();" 
+                             ondrop="app.handleReorderDrop(event, ${i}, 'metrics')">
                             <div class="flex justify-between items-center text-xs">
-                                <div class="flex items-center gap-2 truncate">
-                                    <i class="fas fa-grip-vertical text-gray-300"></i>
+                                <div class="flex items-center gap-2 truncate pointer-events-none">
+                                    <i class="fas fa-grip-vertical text-gray-400"></i>
                                     <span class="text-gray-500 font-mono text-[10px] bg-gray-100 px-1 rounded">${m.table}</span>
                                     <span class="font-bold text-gray-800">${m.col}</span>
                                 </div>
@@ -1090,7 +1226,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                         <option value="MAX" ${m.agg === 'MAX' ? 'selected' : ''}>MAX</option>
                                         <option value="MIN" ${m.agg === 'MIN' ? 'selected' : ''}>MIN</option>
                                     </select>
-                                    <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1" onclick="app.removeMetric(${m.id})"></i>
+                                    <i class="fas fa-times text-gray-400 hover:text-red-500 cursor-pointer ml-1 p-1" onclick="app.removeMetric(${m.id})"></i>
                                 </div>
                             </div>
                         </div>`;
@@ -1128,10 +1264,10 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                 <option value="UNION" ${j.type === 'UNION' ? 'selected' : ''}>UNION</option>
                             </select>
                             <i class="fas fa-arrow-right text-gray-400 text-[10px]"></i>
-                            <select onchange="app.updateJoin(${j.id}, 'toTable', this.value)" class="text-xs border border-gray-300 rounded p-1 flex-1 outline-none">
+                            <select onchange="app.updateJoin(${j.id}, 'toTable', this.value)" class="text-xs border border-gray-300 rounded p-1 flex-1 outline-none font-bold text-gray-700">
                                 <option value="">대상 테이블 선택</option>${toOptions}
                             </select>
-                            <button onclick="app.removeJoin(${j.id})" class="text-gray-400 hover:text-red-500 ml-1"><i class="fas fa-trash-alt"></i></button>
+                            <button onclick="app.removeJoin(${j.id})" class="text-gray-400 hover:text-red-500 ml-1 p-1"><i class="fas fa-trash-alt"></i></button>
                         </div>
                         
                         ${j.type !== 'UNION ALL' && j.type !== 'UNION' ? `
@@ -1151,11 +1287,11 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                                 ${fromOptions}
                                             </select>
                                             <span class="text-gray-400">.</span>
-                                            <select onchange="app.updateJoinCondition(${j.id}, ${idx}, 'fromCol', this.value)" class="border border-gray-300 rounded p-1 outline-none flex-1 truncate">
+                                            <select onchange="app.updateJoinCondition(${j.id}, ${idx}, 'fromCol', this.value)" class="border border-gray-300 rounded p-1 outline-none flex-1 truncate text-gray-700 font-medium">
                                                 <option value="">컬럼선택</option>${fCols}
                                             </select>
                                             <span class="text-gray-500 font-bold">=</span>
-                                            <select onchange="app.updateJoinCondition(${j.id}, ${idx}, 'toCol', this.value)" class="border border-gray-300 rounded p-1 outline-none flex-1 truncate">
+                                            <select onchange="app.updateJoinCondition(${j.id}, ${idx}, 'toCol', this.value)" class="border border-gray-300 rounded p-1 outline-none flex-1 truncate text-gray-700 font-medium">
                                                 <option value="">대상컬럼</option>${tCols}
                                             </select>
                                             <button onclick="app.removeJoinCondition(${j.id}, ${idx})" class="text-gray-400 hover:text-red-500 ml-0.5"><i class="fas fa-times"></i></button>
@@ -1188,7 +1324,9 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 container.innerHTML = q.filters.map((f, i) => {
                     const tableOpts = activeTables.map(t => `<option value="${t}" ${f.table === t ? 'selected' : ''}>${t}</option>`).join('');
                     const colOpts = f.table && allSchemas[f.table] ? Object.keys(allSchemas[f.table].cols).map(c => `<option value="${c}" ${f.col === c ? 'selected' : ''}>${c}</option>`).join('') : '<option value="">테이블 먼저 선택</option>';
-                    
+                    const isMulti = f.op === 'IN' || f.op === 'NOT IN';
+                    const placeholder = isMulti ? "예: 'A', 'B' 또는 1, 2" : (f.op === 'LIKE' ? "'%값%'" : "'값'");
+
                     return `
                     <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-sm fade-in">
                         <div class="flex items-center gap-2 mb-2">
@@ -1209,13 +1347,13 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                             <button onclick="app.removeFilter(${i})" class="ml-auto text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
                         </div>
                         <div class="flex items-center gap-2 text-xs">
-                            <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
+                            <select onchange="app.updateFilter(${i}, 'table', this.value)" class="border border-gray-300 rounded p-1.5 w-1/4 bg-white outline-none focus:border-purple-500 truncate text-gray-700 font-medium">
                                 <option value="">테이블 선택</option>${tableOpts}
                             </select>
-                            <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700">
+                            <select onchange="app.updateFilter(${i}, 'col', this.value)" class="border border-gray-300 rounded p-1.5 w-1/3 bg-white outline-none focus:border-purple-500 truncate text-gray-700 font-medium">
                                 <option value="">컬럼 선택</option>${colOpts}
                             </select>
-                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-20 text-center">
+                            <select onchange="app.updateFilter(${i}, 'op', this.value)" class="border border-gray-300 rounded p-1.5 bg-white outline-none font-bold text-gray-700 w-[72px] shrink-0 text-center">
                                 <option value="=" ${f.op === '=' ? 'selected' : ''}>=</option>
                                 <option value="!=" ${f.op === '!=' ? 'selected' : ''}>!=</option>
                                 <option value=">" ${f.op === '>' ? 'selected' : ''}>&gt;</option>
@@ -1226,7 +1364,7 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                                 <option value="NOT IN" ${f.op === 'NOT IN' ? 'selected' : ''}>NOT IN</option>
                                 <option value="LIKE" ${f.op === 'LIKE' ? 'selected' : ''}>LIKE</option>
                             </select>
-                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 bg-white outline-none focus:border-purple-500 font-mono text-gray-700" placeholder="${(f.op === 'IN' || f.op === 'NOT IN') ? "예: 'A', 'B' 또는 1, 2" : (f.op === 'LIKE' ? "'%값%'" : "'값'")}">
+                            <input type="text" value="${f.val.replace(/"/g, '&quot;')}" onchange="app.updateFilter(${i}, 'val', this.value)" class="border border-gray-300 rounded p-1.5 flex-1 min-w-[80px] bg-white outline-none focus:border-purple-500 font-mono text-gray-700" placeholder="${placeholder}">
                         </div>
                     </div>
                     `;
@@ -1265,19 +1403,23 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 if (!this.queries['main'].baseTable && this.activeTab === 'main') {
                     if (outSql.length === 0) {
                         out.innerHTML = `<span class="token-comment">-- 기준 테이블(Base Table)을 먼저 선택해주세요.</span>\n<span class="token-keyword">SELECT</span> \n    * \n<span class="token-keyword">FROM</span> dual;`;
-                        return;
                     } else {
                         outSql += `<span class="token-comment">-- 메인 쿼리 기준 테이블 미선택</span>\n<span class="token-keyword">SELECT</span> * <span class="token-keyword">FROM</span> dual;`;
+                        out.innerHTML = outSql;
                     }
                 } else if (this.queries['main'].baseTable) {
                     outSql += this.buildSingleSQL(this.queries['main']);
+                    out.innerHTML = outSql;
                 } else if (this.activeTab !== 'main') {
-                    // Previewing CTE tab
                     outSql += `<span class="token-comment">-- 현재 '${this.activeTab}' 서브쿼리 탭을 미리보고 있습니다.</span>\n`;
                     outSql += `<span class="token-keyword">SELECT</span> * <span class="token-keyword">FROM</span> ${this.activeTab};`;
+                    out.innerHTML = outSql;
                 }
-
-                out.innerHTML = outSql;
+                
+                // 데이터 미리보기 탭이 활성화되어 있으면 갱신
+                if (this.rightTab === 'mock') {
+                    this.renderMockData();
+                }
             },
 
             buildSingleSQL: function(q) {
@@ -1305,7 +1447,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                         const bucketAlias = `${d.col}_bucket`;
                         selects.push(`    ${caseStr} <span class="token-keyword">AS</span> ${bucketAlias}`);
                         
-                        // [의견 반영됨] Alias 대신 CASE WHEN 원본 수식을 GROUP BY에 삽입
                         if (!d.bucketAgg) groupBys.push(`    ${caseStr}`);
                     } else {
                         selects.push(`    ${aliasPrefix}${d.col}`);
@@ -1363,7 +1504,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     let formattedVal = f.val;
                     if (f.op === 'IN' || f.op === 'NOT IN') {
                         let tempVal = formattedVal.trim();
-                        // 입력값에 괄호가 없으면 다중값 처리를 위해 자동으로 씌워줍니다.
                         if (!tempVal.startsWith('(')) tempVal = '(' + tempVal;
                         if (!tempVal.endsWith(')')) tempVal = tempVal + ')';
                         formattedVal = tempVal;
@@ -1395,42 +1535,68 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                 return sql;
             },
 
-            indentSQL: function(sql) {
-                return sql.split('\n').map(line => '    ' + line).join('\n');
+            indentSQL: function(sql) { return sql.split('\n').map(line => '    ' + line).join('\n'); },
+
+            renderMockData: function() {
+                const q = this.q();
+                const tableEl = document.getElementById('mockDataTable');
+                
+                if (!q.baseTable || (q.dimensions.length === 0 && q.metrics.length === 0)) {
+                    tableEl.innerHTML = `<tr><td class="p-8 text-center text-gray-400 text-xs">선택된 차원이나 측정값이 없습니다.<br>2단계에서 컬럼을 추가해주세요.</td></tr>`;
+                    return;
+                }
+
+                const cols = [];
+                q.dimensions.forEach(d => {
+                    let name = d.showBucket && d.buckets && d.buckets.length > 0 ? `${d.col}_bucket` : d.col;
+                    cols.push({ name, type: 'dim' });
+                });
+                q.metrics.forEach(m => {
+                    let name = m.isCalc ? m.alias : (m.agg === 'COUNT_DISTINCT' ? `cnt_dist_${m.col}` : `${m.agg.toLowerCase()}_${m.col}`);
+                    cols.push({ name, type: 'num' });
+                });
+
+                let thead = `<thead class="bg-gray-100 text-gray-600 sticky top-0 shadow-sm"><tr>` + 
+                    cols.map(c => `<th class="border-b border-r border-gray-200 px-3 py-2 font-bold whitespace-nowrap bg-gray-100">${c.name}</th>`).join('') +
+                    `</tr></thead>`;
+                
+                let tbody = `<tbody>`;
+                const rows = 15;
+                for(let i=0; i<rows; i++) {
+                    tbody += `<tr class="hover:bg-blue-50 border-b border-gray-100">`;
+                    cols.forEach(c => {
+                        let val = '';
+                        if (c.type === 'num') {
+                            val = Math.floor(Math.random() * 100000).toLocaleString();
+                        } else if (c.name.includes('dt') || c.name.includes('date')) {
+                            val = '2026-09-0' + (Math.floor(Math.random() * 9) + 1);
+                        } else if (c.name.includes('id') || c.name.includes('no')) {
+                            val = Math.floor(100000 + Math.random() * 900000);
+                        } else if (c.name.includes('yn')) {
+                            val = Math.random() > 0.5 ? 'Y' : 'N';
+                        } else {
+                            const samples = ['A그룹', 'B타입', '모바일', 'PC', '정상', '대기', '테스트', 'Direct', 'Organic'];
+                            val = samples[Math.floor(Math.random() * samples.length)];
+                        }
+                        tbody += `<td class="px-3 py-1.5 border-r border-gray-100 text-gray-700 whitespace-nowrap font-medium">${val}</td>`;
+                    });
+                    tbody += `</tr>`;
+                }
+                tbody += `</tbody>`;
+
+                tableEl.innerHTML = thead + tbody;
             },
 
-            copySQL: function() {
-                const el = document.getElementById('sqlOutput');
-                const text = el.innerText || el.textContent;
-                const temp = document.createElement('textarea');
-                temp.value = text;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                document.body.removeChild(temp);
-                this.showToast('SQL이 클립보드에 복사되었습니다.');
-            },
-
-            openSqlExamples: function() { document.getElementById('sqlModal').classList.remove('hidden'); },
-            closeSqlExamples: function() { document.getElementById('sqlModal').classList.add('hidden'); },
-
-            // === 데이터 지속성 (Firestore 저장 및 복구) ===
             saveWorkspace: function() {
                 if (this.saveTimeout) clearTimeout(this.saveTimeout);
                 this.saveTimeout = setTimeout(async () => {
                     if (!db || !userId) return;
                     try {
-                        const state = {
-                            tabs: this.tabs,
-                            activeTab: this.activeTab,
-                            queries: this.queries,
-                            expandedTables: this.expandedTables
-                        };
-                        // Rule 1 준수: /artifacts/{appId}/users/{userId}/{collectionName}
+                        const state = { tabs: this.tabs, activeTab: this.activeTab, queries: this.queries, expandedTables: this.expandedTables };
                         const docRef = doc(db, 'artifacts', appId, 'users', userId, 'workspace', 'current');
                         await setDoc(docRef, state);
                     } catch(e) { console.error('Workspace save failed', e); }
-                }, 1000); // 잦은 통신을 방지하기 위한 1초 디바운싱
+                }, 1000); 
             },
 
             loadWorkspace: async function() {
@@ -1448,6 +1614,21 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     }
                 } catch(e) { console.error('Workspace load failed', e); }
             },
+
+            copySQL: function() {
+                const el = document.getElementById('sqlOutput');
+                const text = el.innerText || el.textContent;
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                this.showToast('SQL이 클립보드에 복사되었습니다.');
+            },
+
+            openSqlExamples: function() { document.getElementById('sqlModal').classList.remove('hidden'); },
+            closeSqlExamples: function() { document.getElementById('sqlModal').classList.add('hidden'); },
 
             syntaxHighlightVSCode: function(sql) {
                 return sql
@@ -1514,7 +1695,6 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
             }
         };
 
-        // === 앱 초기화 및 Firebase 연동 ===
         async function bootApp() {
             try {
                 if (firebaseConfigStr) {
@@ -1531,13 +1711,11 @@ where sell.part_date = 20260720 AND DEL_DT is null;`;
                     }
                     userId = auth.currentUser.uid;
                     
-                    // 클라우드에서 이전 쿼리 및 UI 상태 로드
                     await window.app.loadWorkspace();
                 }
             } catch (error) {
-                console.error("데이터 복원 초기화 실패:", error);
+                console.error("Firebase Init Error:", error);
             } finally {
-                // 성공/실패 여부와 상관없이 쿼리 빌더 실행
                 window.app.init();
             }
         }
